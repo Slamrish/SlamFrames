@@ -1,0 +1,15 @@
+## Interface: 11200
+## Title: SlamFrames
+## Notes: High-resolution movable/scalable player, target, and target-of-target unit frames for OctoWoW / 1.12-style clients.
+## Author: Amrish + ChatGPT
+## Version: 1.0.0
+## SavedVariables: SlamFramesDB
+
+Config.lua
+StatusBar.lua
+SlamFrames.lua
+Skin.lua
+CastIcons.lua
+CastBar.lua
+Effects.lua
+Settings.lua
