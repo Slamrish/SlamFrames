@@ -1,3 +1,22 @@
+SlamFrames v2.0
+- Added special two-layer Rare/Elite and Boss portrait decorations with clean circular portrait masking.
+- Added automatic target classification for Rare, Elite, Rare-Elite and Boss special frames.
+- Added optional Player special portrait decoration with Rare/Elite or Boss style selection.
+- Player special-frame artwork is automatically mirrored so the dragon faces inward toward the Player bars.
+- Added Light and Dark special portrait assets matched to SlamFrames' gold and graphite themes.
+- Added independent horizontal name-position sliders for Player, Friendly targets, normal Enemy targets, and Rare/Elite/Boss targets.
+- Expanded all name-position sliders to -150 through +150 in 5-pixel steps.
+- Added predictive healing support with HealComm integration and local prediction fallback behavior.
+- Added the Ornate cast-bar style with configurable flavor text, spell/item icons, timer, latency display and improved alignment.
+- Added canonical cast-progress rendering shared across supported cast states.
+- Added legacy Vanilla/Turtle-style cast pushback handling based on SPELLCAST_DELAYED timing.
+- Improved STOP/interrupt/failure arbitration so normal cast completion does not falsely display INTERRUPTED.
+- Improved channel, bandage, profession, gathering and world-object interaction handling.
+- Added server-side aura-duration refresh reconciliation using Nampower duration-refresh events.
+- Refreshed or re-stacked timed auras can now reset their SlamFrames timer correctly instead of becoming icon-only after the original timer expires.
+- Theme changes continue to use the stable reload-prompt path for reliable texture swapping.
+- Numeric aura timers remain the supported aura countdown display; the experimental radial sweep remains retired.
+
 SlamFrames v1.0.0
 - First stable release baseline.
 - Promoted the author's current tested SavedVariables profile to the fresh-install and Reset defaults.

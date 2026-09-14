@@ -1,0 +1,13 @@
+SLAMFRAMES 2.0 REPOSITORY UPDATE
+
+This package is an OVERLAY for the existing SlamFrames GitHub repository.
+It is not a complete fresh-install addon by itself.
+
+1. Back up your repository.
+2. Copy the contents of this package into the root of the existing SlamFrames repository.
+3. Allow the changed Lua/TGA/TOC/docs files to replace the old versions.
+4. Prepend CHANGELOG-v2.0-ENTRY.txt from the release materials to your existing CHANGELOG.txt.
+5. Commit the result, suggested commit message:
+   Release SlamFrames 2.0
+6. Create GitHub tag/release: v2.0
+7. For the downloadable addon asset, zip the COMPLETE updated SlamFrames folder so the ZIP contains a top-level folder named SlamFrames.

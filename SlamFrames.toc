@@ -1,15 +1,25 @@
 ## Interface: 11200
 ## Title: SlamFrames
-## Notes: High-resolution movable/scalable player, target, and target-of-target unit frames for OctoWoW / 1.12-style clients.
+## Notes: SlamFrames 2.0 - predictive healing, Ornate cast bar, special Rare / Elite / Boss portrait frames, aura refresh fixes, and configurable name placement.
 ## Author: Amrish + ChatGPT
-## Version: 1.0.0
+## Version: 2.0
 ## SavedVariables: SlamFramesDB
+## OptionalDeps: HealComm
 
 Config.lua
 StatusBar.lua
 SlamFrames.lua
+AuraRefreshFix.lua
 Skin.lua
 CastIcons.lua
 CastBar.lua
+SharedCastBarFixes.lua
+LegacyPushback.lua
 Effects.lua
 Settings.lua
+SpecialPortraitFrames.lua
+Enhancements.lua
+HealPredictionV2.lua
+CastBarOrnateV2.lua
+CanonicalCastProgress.lua
+ThemeReloadPrompt.lua
