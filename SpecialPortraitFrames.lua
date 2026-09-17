@@ -246,7 +246,7 @@ local function ApplySpecialLayering(frame,active)
         -- the actual circular portrait above it.  This makes the portrait act
         -- as a reliable Vanilla-era mask for anything that intrudes inward.
         if frame.sfSpecialBackFrame then
-            frame.sfSpecialBackFrame:SetFrameStrata("MEDIUM")
+            frame.sfSpecialBackFrame:SetFrameStrata(frame.sfUnitStrata or "MEDIUM")
             frame.sfSpecialBackFrame:SetFrameLevel(base+6)
         end
         if frame.portrait then frame.portrait:SetFrameLevel(base+7) end
@@ -254,7 +254,7 @@ local function ApplySpecialLayering(frame,active)
         -- below the front bezel so the circular edge remains perfectly clean.
         if frame.statusFrame then frame.statusFrame:SetFrameLevel(base+8) end
         if frame.sfSpecialFrontFrame then
-            frame.sfSpecialFrontFrame:SetFrameStrata("MEDIUM")
+            frame.sfSpecialFrontFrame:SetFrameStrata(frame.sfUnitStrata or "MEDIUM")
             frame.sfSpecialFrontFrame:SetFrameLevel(base+9)
         end
         if frame.levelBadge then frame.levelBadge:SetFrameLevel(base+10) end

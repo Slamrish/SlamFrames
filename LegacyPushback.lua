@@ -1,4 +1,4 @@
--- SlamFrames TEST 23 - Turtle/Vanilla pushback timing bridge.
+-- SlamFrames TEST 36 - Turtle/Vanilla pushback timing bridge.
 -- Based on the same legacy SPELLCAST_START / SPELLCAST_DELAYED timing model
 -- used by DragonflightUI-Reforged on Turtle WoW 1.12.
 -- Shared behavior: applies to every SlamFrames cast-bar visual style.
@@ -75,7 +75,8 @@ function SF:CastBarEvent(ev,a1,a2,a3,a4,a5)
 
     if ev=="SPELLCAST_START" then
         local duration=Seconds(a2)
-        if duration and duration>0 and duration<60 and cb.active and not cb.isChannel then
+        local special=(SF.IsSpecialActionCastTiming and SF.IsSpecialActionCastTiming(a1)) or (cb and cb.sfSpecialActionTiming)
+        if duration and duration>0 and duration<60 and cb.active and not cb.isChannel and not special then
             local now=GetTime()
             LockLegacyTiming(cb,now,now+duration)
             if self.RenderCastBar then self:RenderCastBar() end
@@ -85,7 +86,8 @@ function SF:CastBarEvent(ev,a1,a2,a3,a4,a5)
 
     if ev=="SPELLCAST_DELAYED" then
         local delay=Seconds(a1) or Seconds(a2)
-        if delay and delay>0 and delay<10 and cb.active and not cb.isChannel then
+        local special=cb and cb.sfSpecialActionTiming
+        if delay and delay>0 and delay<10 and cb.active and not cb.isChannel and not special then
             -- Use the timing from immediately BEFORE CastBar.lua handled the
             -- event.  Its own handler may query C_Spell; using our pre-event
             -- snapshot prevents that query from swallowing the pushback.

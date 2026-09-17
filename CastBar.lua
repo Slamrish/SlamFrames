@@ -1,4 +1,4 @@
--- SlamFrames v0.19.20 - corrected Vanilla/Octo cast timing semantics for spells, items, bandages, gathering and channels
+-- SlamFrames TEST39 - isolated Vanilla/Octo cast timing ownership for spells, items, bandages, gathering and channels
 -- Gold three-slice artwork, spell icon, cast/channel/fail states, latency zone,
 -- explicit old-client layout scaling, movement and preview controls.
 
@@ -178,17 +178,47 @@ local function QueryCast()
     return nil
 end
 
+-- TEST39: Octo can leave the previous channel visible through C_Spell or the
+-- hidden Blizzard CastingBarFrame after a bandage/channel has ended.  Never
+-- accept timing merely because a source says "something is casting"; prove
+-- that the state belongs to the cast SlamFrames is currently starting/showing.
+local function TimingStateFreshForStart(expectedName,expectedChannel,stateName,s,e,stateChannel)
+    s=tonumber(s); e=tonumber(e)
+    if not s or not e or e<=s then return false end
+    local now=GetTime()
+    local wantChannel=expectedChannel and true or false
+    if (stateChannel and true or false)~=wantChannel then return false end
+    -- START events should correspond to a state stamped essentially now.  A
+    -- previous 8-second bandage therefore cannot be inherited by the next cast.
+    if s<(now-1.50) or s>(now+0.50) or e<=(now-0.05) then return false end
+    return true
+end
+
+local function TimingStateBelongsToActive(cb,stateName,s,e,stateChannel)
+    if not cb or not cb.active then return false end
+    s=tonumber(s); e=tonumber(e)
+    if not s or not e or e<=s then return false end
+    local now=GetTime()
+    if e<=(now-0.05) then return false end
+    if (stateChannel and true or false)~=(cb.isChannel and true or false) then return false end
+    if cb.castStartedAt and s<(cb.castStartedAt-1.50) then return false end
+    return true
+end
+
 local function ResolveCast(name,rawDuration,isChannel)
-    -- Preferred: Octo/ClassicAPI exact unit timing.
+    -- Preferred: Octo/ClassicAPI exact unit timing, but only when that timing
+    -- belongs to THIS start event.  Octo can retain stale channel information
+    -- after bandages; accepting it blindly poisons the following cast.
     local qName,qTex,qStart,qEnd,qChannel,qSpellID=QueryCast()
-    if qName and qStart and qEnd and qEnd>qStart then
+    if qName and TimingStateFreshForStart(name,isChannel,qName,qStart,qEnd,qChannel) then
         return ResolveDisplayName(qName,qChannel),qTex,qStart,qEnd,qChannel,"api",qSpellID
     end
 
     -- Fallback: Blizzard's native player cast frame knows about item casts and
-    -- other engine actions that may not resolve through C_Spell.
+    -- other engine actions that may not resolve through C_Spell.  Apply the same
+    -- ownership check so a finished channel cannot be recycled by Throw/Hearth.
     local bName,bTex,bStart,bEnd,bChannel=ReadBlizzardCastState()
-    if bStart and bEnd and bEnd>bStart then
+    if bStart and TimingStateFreshForStart(name,isChannel,bName,bStart,bEnd,bChannel) then
         return ResolveDisplayName(bName or name,bChannel),bTex,bStart,bEnd,bChannel,"blizzard"
     end
 
@@ -490,6 +520,12 @@ end
 function SF:StartCastBar(name,texture,startTime,endTime,isChannel,source,spellID)
     if not SlamFramesDB.showPlayerCastbar or not self.castbar then return end
     local cb=self.castbar
+    -- Every START is a hard ownership boundary.  No timing owner/poll state from
+    -- a previous bandage, channel, tradeskill or pushed-back spell may survive.
+    cb.sfSpecialActionTiming=nil
+    cb.sfLegacyTiming=nil; cb.sfLegacyStart=nil; cb.sfLegacyEnd=nil
+    cb.nextTimingPoll=nil
+    cb.castStartedAt=GetTime()
     cb.active=true; cb.isChannel=isChannel and true or false
     cb.castSource=source or "unknown"
     cb.nativeSyncUntil=(source=="legacy") and (GetTime()+0.35) or nil
@@ -506,9 +542,12 @@ function SF:StartCastBar(name,texture,startTime,endTime,isChannel,source,spellID
     self:RenderCastBar()
 end
 
-function SF:RefreshCastBarFromAPI()
+function SF:RefreshCastBarFromAPI(expectedName,expectedChannel)
     local name,tex,startTime,endTime,isChannel,spellID=QueryCast()
     if name then
+        if expectedChannel~=nil and not TimingStateFreshForStart(expectedName,expectedChannel,name,startTime,endTime,isChannel) then
+            return false
+        end
         self:StartCastBar(name,tex,startTime,endTime,isChannel,"api",spellID)
         return true
     end
@@ -519,6 +558,9 @@ function SF:FailCastBar(label)
     local cb=self.castbar
     if not cb or not SlamFramesDB.showPlayerCastbar then return end
     cb.active=nil; cb.previewHold=nil; cb.isChannel=nil
+    cb.sfSpecialActionTiming=nil
+    cb.sfLegacyTiming=nil; cb.sfLegacyStart=nil; cb.sfLegacyEnd=nil
+    cb.nextTimingPoll=nil; cb.nativeSyncUntil=nil; cb.castStartedAt=nil
     cb.failureUntil=GetTime()+0.75; cb.fadeStart=nil
     cb.name:SetText(label or "INTERRUPTED")
     cb.timer:SetText("")
@@ -541,7 +583,11 @@ function SF:ClearCastBar(immediate)
     local cb=self.castbar
     if not cb then return end
     cb.active=nil; cb.previewHold=nil; cb.failure=nil; cb.failureUntil=nil
+    cb.isChannel=nil
     cb.castSource=nil; cb.nativeSyncUntil=nil; cb.castIconLocked=nil
+    cb.sfSpecialActionTiming=nil
+    cb.sfLegacyTiming=nil; cb.sfLegacyStart=nil; cb.sfLegacyEnd=nil
+    cb.nextTimingPoll=nil; cb.castStartedAt=nil
     cb.spark:Hide(); cb.latency:Hide(); cb.latencyEdge:Hide()
     if immediate then cb.fadeStart=nil; cb:Hide(); cb:SetAlpha(0)
     else cb.fadeStart=GetTime(); cb:SetAlpha(1) end
@@ -628,7 +674,7 @@ function SF:UpdateCastBar(elapsed)
     -- the engine's actual timing instead of keeping a guessed 1-second bar.
     if cb.active and cb.nativeSyncUntil and now<=cb.nativeSyncUntil then
         local n,tex,s,e,ch=ReadBlizzardCastState()
-        if s and e and e>s then
+        if TimingStateBelongsToActive(cb,n,s,e,ch) then
             cb.startTime=s; cb.endTime=e; cb.isChannel=ch and true or false
             cb.castSource="blizzard"
             cb.nativeSyncUntil=nil
@@ -644,7 +690,7 @@ function SF:UpdateCastBar(elapsed)
     if cb.active and (not cb.nextTimingPoll or now>=cb.nextTimingPoll) then
         cb.nextTimingPoll=now+0.05
         local n,tex,s,e,ch,spellID=QueryCast()
-        if n and s and e and e>s then
+        if n and TimingStateBelongsToActive(cb,n,s,e,ch) then
             cb.startTime=s; cb.endTime=e; cb.isChannel=ch and true or false
             cb.castSource="api"
             local display=ResolveDisplayName(n,cb.isChannel)
@@ -652,7 +698,7 @@ function SF:UpdateCastBar(elapsed)
             ReconcileCastIcon(cb,display,spellID,tex)
         else
             local bn,btex,bs,be,bch=ReadBlizzardCastState()
-            if bs and be and be>bs then
+            if TimingStateBelongsToActive(cb,bn,bs,be,bch) then
                 cb.startTime=bs; cb.endTime=be; cb.isChannel=bch and true or false
                 cb.castSource="blizzard"
                 local display=ResolveDisplayName(bn,cb.isChannel)
@@ -710,8 +756,10 @@ function SF:CastBarEvent(ev,a1,a2,a3,a4,a5)
     if string.find(ev or "","^UNIT_SPELLCAST_") then
         if a1~="player" then return end
         if ev=="UNIT_SPELLCAST_START" or ev=="UNIT_SPELLCAST_CHANNEL_START" then
-            if not self:RefreshCastBarFromAPI() then
-                local name=a4
+            local eventIsChannel=(ev=="UNIT_SPELLCAST_CHANNEL_START")
+            local eventName=a4
+            if not self:RefreshCastBarFromAPI(eventName,eventIsChannel) then
+                local name=eventName
                 local eventSpellID=a3
                 local rn,rt,rs,re,rc,source,resolvedSpellID=ResolveCast(name,nil,ev=="UNIT_SPELLCAST_CHANNEL_START")
                 local sid=resolvedSpellID or eventSpellID
@@ -719,13 +767,13 @@ function SF:CastBarEvent(ev,a1,a2,a3,a4,a5)
             end
         elseif ev=="UNIT_SPELLCAST_DELAYED" or ev=="UNIT_SPELLCAST_CHANNEL_UPDATE" then
             local name,tex,startTime,endTime,isChannel,spellID=QueryCast()
-            if name and self.castbar.active then
+            if name and TimingStateBelongsToActive(self.castbar,name,startTime,endTime,isChannel) then
                 self.castbar.startTime=startTime; self.castbar.endTime=endTime; self.castbar.isChannel=isChannel and true or false
                 self.castbar.castSource="api"
                 ReconcileCastIcon(self.castbar,name,spellID,tex)
             else
-                local _,_,s,e,ch=ReadBlizzardCastState()
-                if s and e and self.castbar.active then
+                local nativeName,_,s,e,ch=ReadBlizzardCastState()
+                if TimingStateBelongsToActive(self.castbar,nativeName,s,e,ch) then
                     self.castbar.startTime=s; self.castbar.endTime=e; self.castbar.isChannel=ch and true or false
                 end
             end
@@ -762,12 +810,12 @@ function SF:CastBarEvent(ev,a1,a2,a3,a4,a5)
     elseif ev=="SPELLCAST_DELAYED" then
         local delay=NormalizeSeconds(tonumber(a1) or tonumber(a2),nil)
         local name,tex,startTime,endTime,isChannel,spellID=QueryCast()
-        if name and self.castbar.active then
+        if name and TimingStateBelongsToActive(self.castbar,name,startTime,endTime,isChannel) then
             self.castbar.startTime=startTime; self.castbar.endTime=endTime; self.castbar.isChannel=isChannel and true or false
             ReconcileCastIcon(self.castbar,name,spellID,tex)
         else
             local n,nt,ns,ne,nc=ReadBlizzardCastState()
-            if ns and ne and self.castbar.active then
+            if TimingStateBelongsToActive(self.castbar,n,ns,ne,nc) then
                 self.castbar.startTime=ns; self.castbar.endTime=ne; self.castbar.isChannel=nc and true or false
                 local display=ResolveDisplayName(n,self.castbar.isChannel)
                 if display and display~="" then self.castbar.castDisplayName=display; self.castbar.name:SetText(display) end
@@ -777,9 +825,15 @@ function SF:CastBarEvent(ev,a1,a2,a3,a4,a5)
             end
         end
     elseif ev=="SPELLCAST_CHANNEL_UPDATE" then
-        if not self:RefreshCastBarFromAPI() then
+        local qn,qtex,qs,qe,qch,qspellID=QueryCast()
+        if qn and TimingStateBelongsToActive(self.castbar,qn,qs,qe,qch) then
+            self.castbar.startTime=qs; self.castbar.endTime=qe; self.castbar.isChannel=true
+            local qdisplay=ResolveDisplayName(qn,true)
+            if qdisplay and qdisplay~="" then self.castbar.castDisplayName=qdisplay; self.castbar.name:SetText(qdisplay) end
+            ReconcileCastIcon(self.castbar,qdisplay,qspellID,qtex)
+        else
             local n,tex,s,e,ch=ReadBlizzardCastState()
-            if s and e and self.castbar.active then
+            if TimingStateBelongsToActive(self.castbar,n,s,e,ch) then
                 self.castbar.startTime=s; self.castbar.endTime=e; self.castbar.isChannel=true
                 local display=ResolveDisplayName(n,true)
                 if display and display~="" then self.castbar.castDisplayName=display; self.castbar.name:SetText(display) end

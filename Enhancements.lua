@@ -525,7 +525,7 @@ if OriginalCreateSettingsPanel then
                 if SF.castbar and SF.castbar:IsShown() and SF.RefreshOrnateCastSubtext then SF:RefreshOrnateCastSubtext() end
             end)
 
-            flavor.help=MakeCompatLabel(flavor,"Cooking, Fishing and profession crafts use a clean activity label and never append your selected target.",9,.66,.66,.66)
+            flavor.help=MakeCompatLabel(flavor,"Cooking, Fishing, Mining and profession crafts use a clean activity label and never append your selected target.",9,.66,.66,.66)
             flavor.help:SetPoint("TOPLEFT",flavor,"TOPLEFT",14,-76); flavor.help:SetWidth(470); flavor.help:SetJustifyH("LEFT")
 
             flavor.sizeLabel=MakeCompatLabel(flavor,"Flavor Text Size",10,.92,.92,.92)

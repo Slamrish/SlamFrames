@@ -424,6 +424,27 @@ function SF:SetSelfTargetOnClick(v, quiet)
     if not quiet then Print("click Player to target self is now "..(SlamFramesDB.selfTargetOnClick and "ON" or "OFF")..".") end
 end
 
+local function PanelIsShown(frame)
+    return frame and frame.IsShown and frame:IsShown()
+end
+
+function SF:HasBlockingUIPanel()
+    -- Vanilla 1.12 keeps the currently managed Blizzard panels on UIParent.
+    -- We only lower SlamFrames while one of those panels is actually visible.
+    -- This lets unit frames stay above world/nameplate frames during gameplay,
+    -- while profession/character/merchant/etc. panels still cover SlamFrames.
+    if type(GetFullScreenFrame)=="function" and PanelIsShown(GetFullScreenFrame()) then return true end
+    if type(GetDoublewideFrame)=="function" and PanelIsShown(GetDoublewideFrame()) then return true end
+    if type(GetCenterFrame)=="function" and PanelIsShown(GetCenterFrame()) then return true end
+    if type(GetLeftFrame)=="function" and PanelIsShown(GetLeftFrame()) then return true end
+    return false
+end
+
+function SF:GetUnitFrameStrata()
+    if self:HasBlockingUIPanel() then return "LOW" end
+    return "MEDIUM"
+end
+
 function SF:ApplyFrameLayerBase(frame, base)
     if not frame then return end
 
@@ -432,22 +453,53 @@ function SF:ApplyFrameLayerBase(frame, base)
     -- on the old client that left the fills underneath the opaque frame art.
     -- Explicitly level every nested frame so the bars can never disappear.
     frame.sfLayerBase = base or 10
-    frame:SetFrameStrata("MEDIUM")
+
+    -- TEST38: dynamic strata.  MEDIUM is required during normal gameplay so
+    -- world/nameplate frames never cut through SlamFrames.  When a managed
+    -- Blizzard UIPanel is open we temporarily drop to LOW so that panel wins.
+    local unitStrata = self:GetUnitFrameStrata()
+    frame.sfUnitStrata = unitStrata
+    frame:SetFrameStrata(unitStrata)
     frame:SetFrameLevel(frame.sfLayerBase)
-    if frame.portrait then frame.portrait:SetFrameLevel(frame.sfLayerBase + 1) end
-    if frame.artFrame then frame.artFrame:SetFrameLevel(frame.sfLayerBase + 2) end
-    if frame.barFrame then frame.barFrame:SetFrameLevel(frame.sfLayerBase + 3) end
-    if frame.health then frame.health:SetFrameLevel(frame.sfLayerBase + 4) end
-    if frame.power then frame.power:SetFrameLevel(frame.sfLayerBase + 4) end
-    if frame.textFrame then frame.textFrame:SetFrameLevel(frame.sfLayerBase + 5) end
+    if frame.portrait then frame.portrait:SetFrameStrata(unitStrata); frame.portrait:SetFrameLevel(frame.sfLayerBase + 1) end
+    if frame.artFrame then frame.artFrame:SetFrameStrata(unitStrata); frame.artFrame:SetFrameLevel(frame.sfLayerBase + 2) end
+    if frame.barFrame then frame.barFrame:SetFrameStrata(unitStrata); frame.barFrame:SetFrameLevel(frame.sfLayerBase + 3) end
+    if frame.health then frame.health:SetFrameStrata(unitStrata); frame.health:SetFrameLevel(frame.sfLayerBase + 4) end
+    if frame.power then frame.power:SetFrameStrata(unitStrata); frame.power:SetFrameLevel(frame.sfLayerBase + 4) end
+    if frame.textFrame then frame.textFrame:SetFrameStrata(unitStrata); frame.textFrame:SetFrameLevel(frame.sfLayerBase + 5) end
     -- Status glows sit above the portrait/art but below the level medallion.
     -- This keeps resting/combat light from shining through the level badge.
-    if frame.statusFrame then frame.statusFrame:SetFrameLevel(frame.sfLayerBase + 7) end
+    if frame.statusFrame then frame.statusFrame:SetFrameStrata(unitStrata); frame.statusFrame:SetFrameLevel(frame.sfLayerBase + 7) end
+    -- Special portrait back/front pieces are sibling frames rather than normal
+    -- children, so move their strata with the owning unit frame as well.
+    if frame.sfSpecialBackFrame then frame.sfSpecialBackFrame:SetFrameStrata(unitStrata) end
+    if frame.sfSpecialFrontFrame then frame.sfSpecialFrontFrame:SetFrameStrata(unitStrata) end
     if frame.frameKey == "target" and self.auras then
-        local i
-        for i=1,table.getn(self.auras) do self.auras[i]:SetFrameLevel(frame.sfLayerBase + 8) end
+        local i,a,auraLevel
+        for i=1,table.getn(self.auras) do
+            a=self.auras[i]
+            auraLevel=frame.sfLayerBase + 8
+            a:SetFrameStrata(unitStrata)
+            a:SetFrameLevel(auraLevel)
+
+            -- TEST40: aura timer text lives on its own child frame. TEST38's
+            -- dynamic unit-frame layering can raise/lower the aura button long
+            -- after that timer frame was created. On the 1.12 client an
+            -- explicitly-set child frame level can remain at its old absolute
+            -- level, leaving the icon/border visible while the timer text is
+            -- rendered underneath it. Re-lock every aura child to the current
+            -- owning aura level whenever SlamFrames reconciles frame layers.
+            if a.cooldown then
+                a.cooldown:SetFrameStrata(unitStrata)
+                a.cooldown:SetFrameLevel(auraLevel + 1)
+            end
+            if a.timerFrame then
+                a.timerFrame:SetFrameStrata(unitStrata)
+                a.timerFrame:SetFrameLevel(auraLevel + 4)
+            end
+        end
     end
-    if frame.levelBadge then frame.levelBadge:SetFrameLevel(frame.sfLayerBase + 10) end
+    if frame.levelBadge then frame.levelBadge:SetFrameStrata(unitStrata); frame.levelBadge:SetFrameLevel(frame.sfLayerBase + 10) end
 
     -- Refresh after a layer change; this is intentionally redundant and
     -- protects against old-client frame-level reparent/render quirks.
@@ -1026,18 +1078,31 @@ local function UnitIsHostileForLevel(unit,testEnemy)
     return false
 end
 
+local function GrayMobLevel(playerLevel)
+    playerLevel=tonumber(playerLevel) or 1
+    if playerLevel<=5 then return 0 end
+    if playerLevel<=39 then return playerLevel-5-math.floor(playerLevel/10) end
+    if playerLevel<=59 then return playerLevel-1-math.floor(playerLevel/5) end
+    -- Level 60 Vanilla/Turtle rule: mobs 51 and below are gray.  Keeping the
+    -- same nine-level gap above 60 is a safe fallback for custom servers.
+    return playerLevel-9
+end
+
 local function DifficultyColor(level, playerLevel)
-    if GetQuestDifficultyColor and level and level > 0 then
-        local c=GetQuestDifficultyColor(level)
-        if c and c.r then return c.r,c.g,c.b end
-    end
-    playerLevel=playerLevel or UnitLevel("player") or 1
-    local d=(level or playerLevel)-playerLevel
+    -- Do NOT use GetQuestDifficultyColor here.  Quest difficulty and mob XP
+    -- difficulty do not share the same gray cutoff on Vanilla-era clients.
+    -- Example: a level 15 player still earns XP from a level 10 mob, so it must
+    -- be green rather than gray.
+    playerLevel=tonumber(playerLevel) or UnitLevel("player") or 1
+    level=tonumber(level) or playerLevel
+    local d=level-playerLevel
     if d>=5 then return 1.00,0.10,0.10 end       -- red
     if d>=3 then return 1.00,0.45,0.05 end       -- orange
     if d>=-2 then return 1.00,0.90,0.10 end      -- yellow
-    if d>=-4 then return 0.25,1.00,0.25 end      -- green
-    return 0.55,0.55,0.55                         -- trivial/gray
+    if level>GrayMobLevel(playerLevel) then
+        return 0.25,1.00,0.25                    -- green: still grants XP
+    end
+    return 0.55,0.55,0.55                        -- gray: trivial / no XP
 end
 
 local function SetLevelIndicator(f,unit,testLevel,testEnemy)
@@ -2021,6 +2086,18 @@ eventFrame:SetScript("OnUpdate",function()
     reconcileElapsed=reconcileElapsed+(arg1 or 0)
     if reconcileElapsed<0.20 then return end
     reconcileElapsed=0
+
+    -- TEST38: a unit frame must sit above world/nameplate frames in normal
+    -- gameplay, but below managed Blizzard panels while those panels are open.
+    -- Reconcile only when the desired strata actually changes.
+    if SF.player and SF.GetUnitFrameStrata then
+        local wanted=SF:GetUnitFrameStrata()
+        if SF.unitFrameStrata~=wanted then
+            SF.unitFrameStrata=wanted
+            SF:RefreshFrameLayers(SF.topFrameKey)
+        end
+    end
+
     PruneAuraTimingCache()
     if SF.player and (UnitExists("target") or SF.testMode) then SF:UpdateTargetOfTarget(); SF:UpdateAuras() end
 end)

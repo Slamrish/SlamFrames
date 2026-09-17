@@ -162,7 +162,8 @@ end
 local function IsTradeSkillCast()
     if C_Spell and type(C_Spell.UnitCastingInfo)=="function" then
         local ok,_,_,_,_,_,isTradeskill=pcall(C_Spell.UnitCastingInfo,"player")
-        if ok and isTradeskill then return true end
+        local tradeFlag=(isTradeskill==true) or (tonumber(isTradeskill)==1)
+        if ok and tradeFlag then return true end
     end
     return false
 end
@@ -192,6 +193,7 @@ end
 local function DetectCastActivity(spellName)
     local low=string.lower(tostring(spellName or ""))
     if low=="fishing" or string.find(low,"fishing",1,true) then return "Fishing" end
+    if low=="mining" or string.find(low,"mining",1,true) then return "Mining" end
     if low=="cooking" then return "Cooking" end
 
     local tradeActivity=CurrentTradeSkillActivity()

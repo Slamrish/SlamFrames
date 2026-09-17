@@ -1,3 +1,13 @@
+SlamFrames v2.5
+- Fixed cast-state contamination where bandages/channels could poison the timing of later Throw, Hearthstone, Shoot, crafting, Cooking, and other casts until /reload.
+- Isolated each new cast as a clean timing boundary while preserving legacy pushback behavior.
+- Improved special-action timing for Shoot, Throw, gathering, Cooking, crafting, bandages, Hearthstone, and related Vanilla-era cast paths.
+- Added dynamic frame layering: SlamFrames stays above world/nameplate frames during gameplay while dropping below Blizzard panels such as professions, Character, Merchant, and Trainer windows.
+- Corrected enemy level difficulty coloring using the player-level-dependent Vanilla gray/no-XP threshold instead of a fixed or quest-style cutoff.
+- Added target aura timer layer locking so numeric buff/debuff timers remain above their aura icons when frame strata/levels are reconciled.
+- Simplified Ornate cast-bar Mining flavor text to display “Mining” instead of “Casting Mining on [Target Name]”.
+- Preserved the 2.0 predictive healing, special Rare/Elite/Boss portrait frames, aura refresh reconciliation, name-position controls, Light/Dark themes, and Ornate cast bar.
+
 SlamFrames v2.0
 - Added special two-layer Rare/Elite and Boss portrait decorations with clean circular portrait masking.
 - Added automatic target classification for Rare, Elite, Rare-Elite and Boss special frames.
