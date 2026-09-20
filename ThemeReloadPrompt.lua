@@ -52,3 +52,31 @@ if OriginalSetSkin and not SF.themeReloadPromptWrapped then
         return ok
     end
 end
+
+
+local ART_POPUP_KEY="SLAMFRAMES_ARTRES_RELOAD"
+
+local function ArtResLabel(name)
+    if string.lower(tostring(name or ""))=="1080" then return "1080" end
+    return "4K"
+end
+
+function SF:PromptArtResolutionReload(name)
+    local label=ArtResLabel(name)
+    if StaticPopupDialogs and StaticPopup_Show then
+        StaticPopupDialogs[ART_POPUP_KEY]={
+            text="SlamFrames artwork changed to "..label.." mode.\n\nReload the UI now so the alternate textures and geometry rebuild correctly?",
+            button1="Reload Now",
+            button2="Later",
+            OnAccept=function()
+                if type(ReloadUI)=="function" then ReloadUI() end
+            end,
+            timeout=0,
+            whileDead=1,
+            hideOnEscape=1,
+        }
+        StaticPopup_Show(ART_POPUP_KEY)
+        return
+    end
+    if self.Print then self.Print("art resolution changed to "..label..". Please /reload so all artwork updates correctly.") end
+end

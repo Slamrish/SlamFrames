@@ -2,8 +2,9 @@
 -- Dark: SlamFrames artwork is recolored to neutral graphite/grey-black metal so
 -- it blends into the user's existing dark action-bar/minimap aesthetic.
 -- Light: original bright-gold SlamFrames artwork. The native minimap and action-bar
--- artwork receive the same mild warm tint, but action-button outlines, XP/action-bar
--- accent rails, minimap outline rings and addon-button rings stay disabled.
+-- artwork and XP-bar chrome receive the same mild warm tint, while action-button
+-- outlines, extra action-bar accent rails, minimap outline rings and addon-button
+-- rings stay disabled.
 
 local SF=SlamFrames
 local C=SlamFrames_Config
@@ -16,15 +17,26 @@ local SKINNED={
     ["aura_border.tga"]=true,
     ["level_badge.tga"]=true,
     ["castbar_frame.tga"]=true,
+    ["castbar_frame_style2.tga"]=true,
+    ["castbar_icon_style2.tga"]=true,
+    ["castbar2_frame.tga"]=true,
+    ["castbar2_icon.tga"]=true,
+    ["castbar2_fill.tga"]=true,
+    ["castbar2_latency.tga"]=true,
+    ["special_rareelite_back.tga"]=true,
+    ["special_rareelite_front.tga"]=true,
+    ["special_boss_back.tga"]=true,
+    ["special_boss_front.tga"]=true,
 }
 
 function SF:GetSkinTexture(file)
     file=file or ""
+    local base=(self.GetTextureRoot and self:GetTextureRoot()) or TEX
     local skin=(SlamFramesDB and SlamFramesDB.skin) or "dark"
     if skin=="dark" and SKINNED[file] then
-        return TEX.."Dark\\"..file
+        return base.."Dark\\"..file
     end
-    return TEX..file
+    return base..file
 end
 
 local function SetTextureSafe(tex,path)
@@ -47,6 +59,15 @@ function SF:RefreshSkinTextures()
     RefreshUnitFrame(self.player)
     RefreshUnitFrame(self.target)
     RefreshUnitFrame(self.tot)
+    if self.partyFrames then
+        local pi
+        for pi=1,table.getn(self.partyFrames) do RefreshUnitFrame(self.partyFrames[pi]) end
+    end
+    if self.raidFrames then
+        local ri
+        for ri=1,table.getn(self.raidFrames) do RefreshUnitFrame(self.raidFrames[ri]) end
+    end
+    if self.RefreshRaidCompactSkin then self:RefreshRaidCompactSkin() end
 
     if self.auras then
         local i
@@ -79,7 +100,7 @@ local function AddOverlayToButton(button,index)
     if not button or not button.CreateTexture then return nil end
     if button.SlamFramesLightSkinOverlay then return button.SlamFramesLightSkinOverlay end
     local t=button:CreateTexture(nil,"OVERLAY")
-    t:SetTexture(TEX.."aura_border.tga")
+    t:SetTexture((SF.GetSkinTexture and SF:GetSkinTexture("aura_border.tga")) or (TEX.."aura_border.tga"))
     t:SetPoint("TOPLEFT",button,"TOPLEFT",-4,4)
     t:SetPoint("BOTTOMRIGHT",button,"BOTTOMRIGHT",4,-4)
     t:SetAlpha(0.95)
@@ -92,8 +113,9 @@ local function AddRingToFrame(frame,large)
     if not frame or not frame.CreateTexture then return nil end
     if frame.SlamFramesLightSkinRing then return frame.SlamFramesLightSkinRing end
     local t=frame:CreateTexture(nil,"OVERLAY")
-    if large then t:SetTexture(TEX.."Light\\minimap_ring.tga")
-    else t:SetTexture(TEX.."Light\\minimap_button_ring.tga") end
+    local base=(SF.GetTextureRoot and SF:GetTextureRoot()) or TEX
+    if large then t:SetTexture(base.."Light\\minimap_ring.tga")
+    else t:SetTexture(base.."Light\\minimap_button_ring.tga") end
     t:SetPoint("CENTER",frame,"CENTER",0,0)
     if large then
         local w=(frame.GetWidth and frame:GetWidth()) or 140
@@ -129,29 +151,117 @@ local LIGHT_TINT_NAMES={
     "MainMenuBarTexture0","MainMenuBarTexture1","MainMenuBarTexture2","MainMenuBarTexture3",
     "MainMenuBarLeftEndCap","MainMenuBarRightEndCap",
     "BonusActionBarTexture0","BonusActionBarTexture1",
+
+    -- TEST44: carry the same Light-theme warm gold tint down onto the
+    -- native experience-bar chrome so it matches the action bar and gryphons
+    -- instead of retaining the neutral/dark grey treatment. Keep the actual
+    -- XP StatusBar fill untouched; only the Blizzard decorative artwork and
+    -- dividers are recolored. Include both Vanilla names and later-compatible
+    -- cap/mid names so the same code is harmless across OctoWoW variants.
+    "MainMenuXPBarTexture0","MainMenuXPBarTexture1","MainMenuXPBarTexture2","MainMenuXPBarTexture3",
+    "MainMenuXPBarTextureLeftCap","MainMenuXPBarTextureMid","MainMenuXPBarTextureRightCap",
+    "MainMenuXPBarDiv1","MainMenuXPBarDiv2","MainMenuXPBarDiv3","MainMenuXPBarDiv4","MainMenuXPBarDiv5",
+    "MainMenuXPBarDiv6","MainMenuXPBarDiv7","MainMenuXPBarDiv8","MainMenuXPBarDiv9","MainMenuXPBarDiv10",
+    "MainMenuXPBarDiv11","MainMenuXPBarDiv12","MainMenuXPBarDiv13","MainMenuXPBarDiv14","MainMenuXPBarDiv15",
+    "MainMenuXPBarDiv16","MainMenuXPBarDiv17","MainMenuXPBarDiv18","MainMenuXPBarDiv19",
 }
 
-local function ApplyNamedTint(show)
+local function TintNamedObject(name,show)
     if not SF.skinOriginalVertex then SF.skinOriginalVertex={} end
-    local i,obj,r,g,b,a
-    for i=1,table.getn(LIGHT_TINT_NAMES) do
-        obj=_G and _G[LIGHT_TINT_NAMES[i]]
-        if obj and obj.SetVertexColor then
-            if not SF.skinOriginalVertex[obj] then
-                if obj.GetVertexColor then
-                    local ok,rr,gg,bb,aa=pcall(function() return obj:GetVertexColor() end)
-                    if ok then SF.skinOriginalVertex[obj]={rr or 1,gg or 1,bb or 1,aa or 1} else SF.skinOriginalVertex[obj]={1,1,1,1} end
-                else
-                    SF.skinOriginalVertex[obj]={1,1,1,1}
-                end
-            end
-            if show then
-                pcall(function() obj:SetVertexColor(1.00,0.88,0.48,1.00) end)
-            else
-                local c=SF.skinOriginalVertex[obj]
-                pcall(function() obj:SetVertexColor(c[1],c[2],c[3],c[4]) end)
-            end
+    local obj=_G and _G[name]
+    if not obj or not obj.SetVertexColor then return end
+
+    -- Some OctoWoW UI pieces (most notably XP divider/seam textures) are
+    -- created after addons have already applied their skin. Capture each
+    -- object the first time it actually exists, then use the same reversible
+    -- Light-theme tint as the rest of the native action-bar artwork.
+    if not SF.skinOriginalVertex[obj] then
+        if obj.GetVertexColor then
+            local ok,rr,gg,bb,aa=pcall(function() return obj:GetVertexColor() end)
+            if ok then SF.skinOriginalVertex[obj]={rr or 1,gg or 1,bb or 1,aa or 1}
+            else SF.skinOriginalVertex[obj]={1,1,1,1} end
+        else
+            SF.skinOriginalVertex[obj]={1,1,1,1}
         end
+    end
+
+    if show then
+        pcall(function() obj:SetVertexColor(1.00,0.88,0.48,1.00) end)
+    else
+        local c=SF.skinOriginalVertex[obj]
+        pcall(function() obj:SetVertexColor(c[1],c[2],c[3],c[4]) end)
+    end
+end
+
+local function ApplyNamedTint(show)
+    local i
+    for i=1,table.getn(LIGHT_TINT_NAMES) do
+        TintNamedObject(LIGHT_TINT_NAMES[i],show)
+    end
+end
+
+-- TEST45: OctoWoW can build/rebuild the small XP-bar seam/divider regions
+-- after SlamFrames' initial skin pass (for example when the bar width/layout
+-- settles). That left a couple of native grey pieces visible inside an
+-- otherwise gold Light-theme XP bar. Reconcile the complete XP chrome by
+-- name after layout changes as well as during the normal skin pass.
+local function ApplyXPChromeTint(show)
+    local i
+    TintNamedObject("MainMenuXPBarTexture0",show)
+    TintNamedObject("MainMenuXPBarTexture1",show)
+    TintNamedObject("MainMenuXPBarTexture2",show)
+    TintNamedObject("MainMenuXPBarTexture3",show)
+    TintNamedObject("MainMenuXPBarTextureLeftCap",show)
+    TintNamedObject("MainMenuXPBarTextureMid",show)
+    TintNamedObject("MainMenuXPBarTextureRightCap",show)
+
+    -- Compatibility aliases used by different Vanilla/Turtle/Octo layouts.
+    TintNamedObject("MainMenuXPBarLeftCap",show)
+    TintNamedObject("MainMenuXPBarMid",show)
+    TintNamedObject("MainMenuXPBarRightCap",show)
+    TintNamedObject("MainMenuExpBarLeftCap",show)
+    TintNamedObject("MainMenuExpBarMid",show)
+    TintNamedObject("MainMenuExpBarRightCap",show)
+
+    for i=1,19 do TintNamedObject("MainMenuXPBarDiv"..i,show) end
+end
+
+function SF:RefreshXPChromeTint()
+    local show=(SlamFramesDB and SlamFramesDB.skin=="light") and true or false
+    ApplyXPChromeTint(show)
+end
+
+local function InstallXPChromeRefresh()
+    if SF._xpChromeRefreshInstalled then return end
+    SF._xpChromeRefreshInstalled=true
+
+    -- Later-style Octo/Turtle FrameXML can create divider textures inside this
+    -- function. Re-tint immediately after it finishes so no newly-created seam
+    -- remains in the native grey color.
+    if type(MainMenuExpBar_SetWidth)=="function" and not SF._xpWidthHooked then
+        local oldMainMenuExpBar_SetWidth=MainMenuExpBar_SetWidth
+        MainMenuExpBar_SetWidth=function(width)
+            oldMainMenuExpBar_SetWidth(width)
+            SF:RefreshXPChromeTint()
+        end
+        SF._xpWidthHooked=true
+    end
+
+    -- Also run a very lightweight reconciliation while the Light skin is in
+    -- use. This catches XP pieces created or replaced by OctoWoW after login or
+    -- after another stock-UI layout update without touching the XP fill itself.
+    if CreateFrame then
+        local f=CreateFrame("Frame")
+        f.elapsed=0
+        f:SetScript("OnUpdate",function()
+            this.elapsed=(this.elapsed or 0)+arg1
+            if this.elapsed<0.75 then return end
+            this.elapsed=0
+            if SlamFramesDB and SlamFramesDB.skin=="light" then
+                ApplyXPChromeTint(true)
+            end
+        end)
+        SF.skinXPChromeRefreshFrame=f
     end
 end
 
@@ -231,6 +341,8 @@ function SF:ApplyExternalUISkin()
     end
     if self.skinMainBarAccent then self.skinMainBarAccent:Hide() end
     ApplyNamedTint(show)
+    ApplyXPChromeTint(show)
+    InstallXPChromeRefresh()
 end
 
 function SF:ApplySkin(quiet)

@@ -1,4 +1,4 @@
--- SlamFrames v2.5.1
+-- SlamFrames v3.0.0
 -- OctoWoW / 1.12-era compatible unit frames.
 -- Uses old event globals (event, arg1, this) intentionally.
 
@@ -25,12 +25,38 @@ local DEFAULTS = {
     combatGlowIntensity = 1.30,
     showMinimapButton = true,
     skin = "dark",
+    artResolution = "4k", -- 4k | 1080
+
+    -- TEST43 party-frame defaults. The group uses one shared visual profile
+    -- so all four members stay consistent while still being movable as a unit.
+    showPartyFrames = true,
+    partyHideInRaid = true,
+    partySpacing = 8,
+    partyNameOffset = 0,
+
+    -- TEST51 raid-frame defaults. Raid frames intentionally inherit the compact
+    -- Party/ToT visual language and add an 8-group x 5-member layout.
+    showRaidFrames = true,
+    raidSpacing = 4,
+    raidGroupSpacing = 10,
+    raidGroupRowSpacing = 36,
+    raidGroupsPerRow = 8, -- 8 Across | 4 = 4+4 | 2 = two groups across
+    raidNameOffset = 0,
+    raidShowGroupHeaders = true,
+    raidCompactMode = false,
+    raidOpacity = 1.00, -- 0.20 - 1.00; visual only, click targets remain active
+    raidClassColoredNames = false,
+    raidPreviewSize = 20,
+    raidPreviewDebuffs = false,
+    raidDebuffGlowSize = 2,
+    raidPreviewMainTanks = false,
     minimapAngle = -0.4897411260673095,
     minimapRadius = 80,
 
     -- Player cast bar defaults from the 1.0 release profile.
     showPlayerCastbar = true,
     hideBlizzardCastbar = true,
+    hideBlizzardErrorText = false, -- suppress UI_ERROR_MESSAGE red text only
     castbarShowIcon = true,
     castbarShowTimer = true,
     castbarShowLatency = true,
@@ -51,8 +77,8 @@ local DEFAULTS = {
     auraTimerTextScale = 1.00,
 
     -- 0=full, 1=~90%, 2=~80%, 3=~70% bar length.
-    widthPresets = { player = 1, target = 1, tot = 1 },
-    portraitZooms = { player = 1.00, target = 1.00, tot = 1.08 },
+    widthPresets = { player = 1, target = 1, tot = 1, party = 1, raid = 1 },
+    portraitZooms = { player = 1.00, target = 1.00, tot = 1.08, party = 1.08, raid = 1.08 },
     ccAnchor = nil, -- fresh installs receive the 1.0 anchor during DBInit
 }
 
@@ -60,6 +86,8 @@ local DEFAULT_ANCHORS = {
     player = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = 395.0000032142003, y = -495.0000133355117 },
     target = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = 784.0657184958282, y = -500.5849639301763 },
     tot    = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = 969.5351682404736, y = -582.4043413313806 },
+    party  = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = 28, y = -210 },
+    raid   = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = 28, y = -210 },
 }
 
 local DEFAULT_TOT_RELATION = { point="TOPRIGHT", relativePoint="BOTTOMRIGHT", x=0, y=-10 }
@@ -67,7 +95,7 @@ local DEFAULT_TOT_RELATION = { point="TOPRIGHT", relativePoint="BOTTOMRIGHT", x=
 -- The compact 0.60 presentation from the user's in-game screenshot is now the
 -- reset/fresh-install baseline. Scaling is performed by explicit layout rather
 -- than Frame:SetScale, so child text and geometry stay proportional.
-local DEFAULT_SCALES = { player = 0.60, target = 0.60, tot = 0.60 }
+local DEFAULT_SCALES = { player = 0.60, target = 0.60, tot = 0.60, party = 0.60, raid = 0.60 }
 
 local function Print(msg)
     if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("|cffffcc33SlamFrames:|r " .. msg) end
@@ -92,7 +120,145 @@ local function CopyAnchor(src)
     return { point=src.point, relativePoint=src.relativePoint, x=src.x, y=src.y }
 end
 
+-- TEST60: settings are now stored per character.  Keep the old account-wide
+-- SlamFramesDB declared for one-way migration compatibility, but make the
+-- character SavedVariables table the active database used by the addon.
+-- The first character loaded after upgrading snapshots the old shared profile
+-- into SlamFramesAccountDB.characterSeed; every character that has not yet
+-- created its own profile starts from that same snapshot, then diverges.
+local function DeepCopyTable(src, seen)
+    if type(src) ~= "table" then return src end
+    seen = seen or {}
+    if seen[src] then return seen[src] end
+    local out = {}
+    seen[src] = out
+    local k,v
+    for k,v in pairs(src) do
+        out[DeepCopyTable(k, seen)] = DeepCopyTable(v, seen)
+    end
+    return out
+end
+
+local function GetCharacterProfileLabel()
+    local name = nil
+    if type(UnitName) == "function" then name = UnitName("player") end
+    if not name or name == "" then name = "Unknown" end
+    local realm = nil
+    if type(GetRealmName) == "function" then realm = GetRealmName() end
+    if realm and realm ~= "" then return name .. " - " .. realm end
+    return name
+end
+
+
+local ART_RESOLUTION_FACTORS = {
+    ["4k"] = 1.00,
+    ["1080"] = 0.82,
+}
+
+function SF:GetArtResolution()
+    local r = nil
+    if SlamFramesDB and SlamFramesDB.artResolution then
+        r = string.lower(tostring(SlamFramesDB.artResolution))
+    end
+    if r ~= "1080" and r ~= "4k" then
+        r = "4k"
+    end
+    return r
+end
+
+function SF:GetTextureRoot()
+    local root = C.texturePath or "Interface\\AddOns\\SlamFrames\\Textures\\"
+    if self:GetArtResolution() == "1080" then
+        return root .. "1080\\"
+    end
+    return root
+end
+
+local function Scaled(v, factor)
+    if type(v) ~= "number" then return v end
+    return math.max(1, Round(v * factor))
+end
+
+local function BuildResolvedUnitConfig(baseCfg, factor)
+    if not baseCfg or factor == 1 then return DeepCopyTable(baseCfg) end
+    local cfg = DeepCopyTable(baseCfg)
+    cfg.width = Scaled(cfg.width, factor)
+    cfg.height = Scaled(cfg.height, factor)
+    if cfg.widthSlices then
+        cfg.widthSlices.left = Scaled(cfg.widthSlices.left, factor)
+        cfg.widthSlices.right = Scaled(cfg.widthSlices.right, factor)
+        cfg.widthSlices.step = Scaled(cfg.widthSlices.step, factor)
+    end
+    local parts = {"portrait","health","power","name","levelBadge","aura"}
+    local partIndex, part, k
+    for partIndex=1,table.getn(parts) do
+        part = cfg[parts[partIndex]]
+        if type(part) == "table" then
+            for k,v in pairs(part) do
+                if type(v) == "number" and k ~= "zoom" and k ~= "offsetX" and k ~= "offsetY" and k ~= "slices" then
+                    part[k] = Scaled(v, factor)
+                end
+            end
+        end
+    end
+    if cfg.healthPercentFont then cfg.healthPercentFont = Scaled(cfg.healthPercentFont, factor) end
+    if cfg.healthValueFont then cfg.healthValueFont = Scaled(cfg.healthValueFont, factor) end
+    if cfg.powerFont then cfg.powerFont = Scaled(cfg.powerFont, factor) end
+    if cfg.healthPercentOffset then cfg.healthPercentOffset = Scaled(cfg.healthPercentOffset, factor) end
+    if cfg.healthValueOffset then cfg.healthValueOffset = math.floor((cfg.healthValueOffset or 0) * factor + (cfg.healthValueOffset and cfg.healthValueOffset < 0 and -0.5 or 0.5)) end
+    return cfg
+end
+
+function SF:ApplyArtResolutionConfigs()
+    local factor = ART_RESOLUTION_FACTORS[self:GetArtResolution()] or 1.00
+    self.activeConfigs = {
+        player = BuildResolvedUnitConfig(C.player, factor),
+        target = BuildResolvedUnitConfig(C.target, factor),
+        tot    = BuildResolvedUnitConfig(C.tot, factor),
+        party  = BuildResolvedUnitConfig(C.party, factor),
+        raid   = BuildResolvedUnitConfig(C.raid, factor),
+    }
+    self.activeArtFactor = factor
+end
+
+function SF:SetArtResolution(name, quiet)
+    local mode = string.lower(tostring(name or "4k"))
+    if mode ~= "1080" and mode ~= "4k" then mode = "4k" end
+    SlamFramesDB.artResolution = mode
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet and self.Print then self.Print("art resolution set to "..string.upper(mode)..". Please /reload to rebuild textures and geometry.") end
+    return true
+end
+
+local function ActivateCharacterDB()
+    if type(SlamFramesAccountDB) ~= "table" then SlamFramesAccountDB = {} end
+
+    -- Capture the pre-TEST60 account profile exactly once.  This prevents a
+    -- later character from inheriting edits made on whichever character was
+    -- most recently logged out after the migration.
+    if type(SlamFramesAccountDB.characterSeed) ~= "table" then
+        if type(SlamFramesDB) == "table" then
+            SlamFramesAccountDB.characterSeed = DeepCopyTable(SlamFramesDB)
+            SlamFramesAccountDB.migratedFromShared = true
+        else
+            SlamFramesAccountDB.characterSeed = {}
+            SlamFramesAccountDB.migratedFromShared = false
+        end
+        SlamFramesAccountDB.schemaVersion = 1
+    end
+
+    if type(SlamFramesCharacterDB) ~= "table" or SlamFramesCharacterDB.__sfPerCharacter ~= true then
+        SlamFramesCharacterDB = DeepCopyTable(SlamFramesAccountDB.characterSeed or {})
+        SlamFramesCharacterDB.__sfPerCharacter = true
+        SlamFramesCharacterDB.__sfCharacter = GetCharacterProfileLabel()
+    end
+
+    SlamFramesDB = SlamFramesCharacterDB
+    SF.activeCharacterProfile = SlamFramesCharacterDB.__sfCharacter or GetCharacterProfileLabel()
+end
+
 local function DBInit()
+    ActivateCharacterDB()
     if not SlamFramesDB then SlamFramesDB = {} end
     local oldVersion = SlamFramesDB.dbVersion or 0
     local k,v
@@ -122,6 +288,34 @@ local function DBInit()
     if SlamFramesDB.totHealthTextMode ~= "percent" and SlamFramesDB.totHealthTextMode ~= "amount" then
         SlamFramesDB.totHealthTextMode = "percent"
     end
+    if SlamFramesDB.partyHealthTextMode == nil then SlamFramesDB.partyHealthTextMode = "percent" end
+    if SlamFramesDB.partyHealthTextMode ~= "percent" and SlamFramesDB.partyHealthTextMode ~= "amount" and SlamFramesDB.partyHealthTextMode ~= "off" then
+        SlamFramesDB.partyHealthTextMode = "percent"
+    end
+    if SlamFramesDB.showPartyFrames == nil then SlamFramesDB.showPartyFrames = true end
+    if SlamFramesDB.partyHideInRaid == nil then SlamFramesDB.partyHideInRaid = true end
+    SlamFramesDB.partySpacing = Clamp(tonumber(SlamFramesDB.partySpacing) or 8, 0, 40)
+    SlamFramesDB.partyNameOffset = Clamp(tonumber(SlamFramesDB.partyNameOffset) or 0, -150, 150)
+    if SlamFramesDB.raidHealthTextMode == nil then SlamFramesDB.raidHealthTextMode = "percent" end
+    if SlamFramesDB.raidHealthTextMode ~= "percent" and SlamFramesDB.raidHealthTextMode ~= "amount" and SlamFramesDB.raidHealthTextMode ~= "off" then SlamFramesDB.raidHealthTextMode = "percent" end
+    if SlamFramesDB.showRaidFrames == nil then SlamFramesDB.showRaidFrames = true end
+    if SlamFramesDB.raidShowGroupHeaders == nil then SlamFramesDB.raidShowGroupHeaders = true end
+    if SlamFramesDB.raidCompactMode == nil then SlamFramesDB.raidCompactMode = false end
+    SlamFramesDB.raidOpacity = Clamp(tonumber(SlamFramesDB.raidOpacity) or 1.00,0.20,1.00)
+    SlamFramesDB.raidSpacing = Clamp(tonumber(SlamFramesDB.raidSpacing) or 4,0,40)
+    SlamFramesDB.raidGroupSpacing = Clamp(tonumber(SlamFramesDB.raidGroupSpacing) or 10,0,40)
+    SlamFramesDB.raidGroupRowSpacing = Clamp(tonumber(SlamFramesDB.raidGroupRowSpacing) or 36,0,80)
+    local rgpr=tonumber(SlamFramesDB.raidGroupsPerRow) or 8
+    if rgpr~=2 and rgpr~=4 and rgpr~=8 then rgpr=8 end
+    SlamFramesDB.raidGroupsPerRow=rgpr
+    SlamFramesDB.raidNameOffset = Clamp(tonumber(SlamFramesDB.raidNameOffset) or 0,-150,150)
+    local rps=tonumber(SlamFramesDB.raidPreviewSize) or 20
+    if rps~=5 and rps~=10 and rps~=15 and rps~=20 and rps~=40 then rps=20 end
+    SlamFramesDB.raidPreviewSize=rps
+    if SlamFramesDB.raidClassColoredNames == nil then SlamFramesDB.raidClassColoredNames = false end
+    if SlamFramesDB.raidPreviewDebuffs == nil then SlamFramesDB.raidPreviewDebuffs = false end
+    SlamFramesDB.raidDebuffGlowSize = Clamp(tonumber(SlamFramesDB.raidDebuffGlowSize) or 2,1,8)
+    if SlamFramesDB.raidPreviewMainTanks == nil then SlamFramesDB.raidPreviewMainTanks = false end
 
     if SlamFramesDB.showPowerNumbers == nil then SlamFramesDB.showPowerNumbers = true end
     if SlamFramesDB.showRestingEffect == nil then SlamFramesDB.showRestingEffect = true end
@@ -131,9 +325,11 @@ local function DBInit()
     SlamFramesDB.combatGlowIntensity = Clamp(tonumber(SlamFramesDB.combatGlowIntensity) or 1.30, 0.50, 2.00)
     if SlamFramesDB.showMinimapButton == nil then SlamFramesDB.showMinimapButton = true end
     if SlamFramesDB.skin ~= "light" and SlamFramesDB.skin ~= "dark" then SlamFramesDB.skin = "dark" end
+    if SlamFramesDB.artResolution ~= "1080" and SlamFramesDB.artResolution ~= "4k" then SlamFramesDB.artResolution = "4k" end
 
     if SlamFramesDB.showPlayerCastbar == nil then SlamFramesDB.showPlayerCastbar = true end
     if SlamFramesDB.hideBlizzardCastbar == nil then SlamFramesDB.hideBlizzardCastbar = true end
+    if SlamFramesDB.hideBlizzardErrorText == nil then SlamFramesDB.hideBlizzardErrorText = false end
     if SlamFramesDB.castbarShowIcon == nil then SlamFramesDB.castbarShowIcon = true end
     if SlamFramesDB.castbarShowTimer == nil then SlamFramesDB.castbarShowTimer = true end
     if SlamFramesDB.castbarShowLatency == nil then SlamFramesDB.castbarShowLatency = true end
@@ -179,17 +375,25 @@ local function DBInit()
     if SlamFramesDB.widthPresets.player == nil then SlamFramesDB.widthPresets.player = 1 end
     if SlamFramesDB.widthPresets.target == nil then SlamFramesDB.widthPresets.target = 1 end
     if SlamFramesDB.widthPresets.tot == nil then SlamFramesDB.widthPresets.tot = 1 end
+    if SlamFramesDB.widthPresets.party == nil then SlamFramesDB.widthPresets.party = 1 end
+    if SlamFramesDB.widthPresets.raid == nil then SlamFramesDB.widthPresets.raid = 1 end
     SlamFramesDB.widthPresets.player = Clamp(math.floor((SlamFramesDB.widthPresets.player or 0) + 0.5), 0, (C.player.widthSlices and C.player.widthSlices.maxPreset) or 0)
     SlamFramesDB.widthPresets.target = Clamp(math.floor((SlamFramesDB.widthPresets.target or 0) + 0.5), 0, (C.target.widthSlices and C.target.widthSlices.maxPreset) or 0)
     SlamFramesDB.widthPresets.tot = Clamp(math.floor((SlamFramesDB.widthPresets.tot or 0) + 0.5), 0, (C.tot.widthSlices and C.tot.widthSlices.maxPreset) or 0)
+    SlamFramesDB.widthPresets.party = Clamp(math.floor((SlamFramesDB.widthPresets.party or 0) + 0.5), 0, (C.party.widthSlices and C.party.widthSlices.maxPreset) or 0)
+    SlamFramesDB.widthPresets.raid = Clamp(math.floor((SlamFramesDB.widthPresets.raid or 0) + 0.5), 0, (C.raid.widthSlices and C.raid.widthSlices.maxPreset) or 0)
 
     if not SlamFramesDB.portraitZooms then SlamFramesDB.portraitZooms = {} end
     if SlamFramesDB.portraitZooms.player == nil then SlamFramesDB.portraitZooms.player = 1.00 end
     if SlamFramesDB.portraitZooms.target == nil then SlamFramesDB.portraitZooms.target = 1.00 end
     if SlamFramesDB.portraitZooms.tot == nil then SlamFramesDB.portraitZooms.tot = C.tot.portrait.zoom or 1.00 end
+    if SlamFramesDB.portraitZooms.party == nil then SlamFramesDB.portraitZooms.party = C.party.portrait.zoom or 1.08 end
+    if SlamFramesDB.portraitZooms.raid == nil then SlamFramesDB.portraitZooms.raid = C.raid.portrait.zoom or 1.08 end
     SlamFramesDB.portraitZooms.player = Clamp(tonumber(SlamFramesDB.portraitZooms.player) or 1.00, 1.00, 1.50)
     SlamFramesDB.portraitZooms.target = Clamp(tonumber(SlamFramesDB.portraitZooms.target) or 1.00, 1.00, 1.50)
     SlamFramesDB.portraitZooms.tot = Clamp(tonumber(SlamFramesDB.portraitZooms.tot) or 1.08, 1.00, 1.50)
+    SlamFramesDB.portraitZooms.party = Clamp(tonumber(SlamFramesDB.portraitZooms.party) or 1.08, 1.00, 1.50)
+    SlamFramesDB.portraitZooms.raid = Clamp(tonumber(SlamFramesDB.portraitZooms.raid) or 1.08, 1.00, 1.50)
     if SlamFramesDB.ccAnchor ~= nil and type(SlamFramesDB.ccAnchor) ~= "table" then SlamFramesDB.ccAnchor = nil end
     if oldVersion == 0 and SlamFramesDB.ccAnchor == nil then
         SlamFramesDB.ccAnchor = { x = -35.55593730832338, y = 73.98975554593724 }
@@ -213,13 +417,18 @@ local function DBInit()
         else SlamFramesDB.anchors.target = CopyAnchor(DEFAULT_ANCHORS.target) end
     end
     if not SlamFramesDB.anchors.tot then SlamFramesDB.anchors.tot = CopyAnchor(DEFAULT_ANCHORS.tot) end
+    if not SlamFramesDB.anchors.party then SlamFramesDB.anchors.party = CopyAnchor(DEFAULT_ANCHORS.party) end
+    if not SlamFramesDB.anchors.raid then SlamFramesDB.anchors.raid = CopyAnchor(DEFAULT_ANCHORS.raid) end
 
     local oldScale = SlamFramesDB.scale
     if SlamFramesDB.scales.player == nil then SlamFramesDB.scales.player = oldScale or DEFAULT_SCALES.player end
     if SlamFramesDB.scales.target == nil then SlamFramesDB.scales.target = oldScale or DEFAULT_SCALES.target end
     if SlamFramesDB.scales.tot == nil then SlamFramesDB.scales.tot = oldScale or DEFAULT_SCALES.tot end
+    if SlamFramesDB.scales.party == nil then SlamFramesDB.scales.party = DEFAULT_SCALES.party end
+    if SlamFramesDB.scales.raid == nil then SlamFramesDB.scales.raid = DEFAULT_SCALES.raid end
 
-    SlamFramesDB.dbVersion = 20
+    if SF.InitClickCastingDB then SF:InitClickCastingDB() end
+    SlamFramesDB.dbVersion = 23
 end
 
 local function FormatNumber(n)
@@ -329,6 +538,8 @@ local function FrameForKey(key)
     if key == "player" then return SF.player end
     if key == "target" then return SF.target end
     if key == "tot" then return SF.tot end
+    if key == "party" then return SF.partyFrames and SF.partyFrames[1] end
+    if key == "raid" then return SF.raidFrames and SF.raidFrames[1] end
 end
 SF.FrameForKey = FrameForKey
 
@@ -337,6 +548,8 @@ local function NormalizeKey(key)
     if key == "p" or key == "player" then return "player" end
     if key == "t" or key == "target" then return "target" end
     if key == "tot" or key == "targettarget" or key == "target-of-target" then return "tot" end
+    if key == "party" or key == "group" or key == "p1" then return "party" end
+    if key == "raid" or key == "r" then return "raid" end
 end
 SF.NormalizeKey = NormalizeKey
 
@@ -381,10 +594,14 @@ end
 
 local function UpdateFrameMouseState(frame)
     if not frame then return end
-    -- Unit frames remain mouse-enabled while locked so normal right-click menus
-    -- still work. Locking only disables movement and mouse-wheel scaling.
+    -- TEST50: while locked, a real Button child owns unit-frame clicks. This
+    -- keeps spell/item execution inside Button OnClick, matching proven 1.12
+    -- healer-frame implementations. While unlocked, the parent owns the mouse
+    -- so movement/scaling continues to work exactly as before.
     frame:EnableMouse(true)
     if frame.EnableMouseWheel then frame:EnableMouseWheel(not SlamFramesDB.locked) end
+    if SF.EnsureUnitClickButton then SF:EnsureUnitClickButton(frame) end
+    if SF.RefreshUnitClickButton then SF:RefreshUnitClickButton(frame) end
 end
 
 local function UnitMenuForFrame(frame)
@@ -394,6 +611,12 @@ local function UnitMenuForFrame(frame)
         dropdown = PlayerFrameDropDown
     elseif frame.unit == "target" or frame.unit == "targettarget" then
         dropdown = TargetFrameDropDown
+    elseif string.sub(frame.unit,1,5) == "party" then
+        local idx=tonumber(string.sub(frame.unit,6))
+        if idx and idx>=1 and idx<=4 then
+            if type(getglobal)=="function" then dropdown=getglobal("PartyMemberFrame"..idx.."DropDown")
+            elseif _G then dropdown=_G["PartyMemberFrame"..idx.."DropDown"] end
+        end
     end
     if dropdown and ToggleDropDownMenu then
         dropdown.unit = frame.unit
@@ -401,6 +624,7 @@ local function UnitMenuForFrame(frame)
         ToggleDropDownMenu(1, nil, dropdown, "cursor")
     end
 end
+SF.UnitMenuForFrame = UnitMenuForFrame
 
 local function TargetIsPlayer()
     if not UnitExists("target") then return false end
@@ -466,10 +690,25 @@ function SF:ApplyFrameLayerBase(frame, base)
     if frame.barFrame then frame.barFrame:SetFrameStrata(unitStrata); frame.barFrame:SetFrameLevel(frame.sfLayerBase + 3) end
     if frame.health then frame.health:SetFrameStrata(unitStrata); frame.health:SetFrameLevel(frame.sfLayerBase + 4) end
     if frame.power then frame.power:SetFrameStrata(unitStrata); frame.power:SetFrameLevel(frame.sfLayerBase + 4) end
+    if frame.raidCompactDecorFrame then frame.raidCompactDecorFrame:SetFrameStrata(unitStrata); frame.raidCompactDecorFrame:SetFrameLevel(frame.sfLayerBase + 3) end
+    if frame.raidPreviewDebuffFrame then
+        frame.raidPreviewDebuffFrame:SetFrameStrata(unitStrata)
+        frame.raidPreviewDebuffFrame:SetFrameLevel(frame.sfLayerBase + 28)
+        if frame.raidPreviewDebuffFrame.iconFrame then
+            frame.raidPreviewDebuffFrame.iconFrame:SetFrameStrata(unitStrata)
+            frame.raidPreviewDebuffFrame.iconFrame:SetFrameLevel(frame.sfLayerBase + 29)
+        end
+    end
     if frame.textFrame then frame.textFrame:SetFrameStrata(unitStrata); frame.textFrame:SetFrameLevel(frame.sfLayerBase + 5) end
     -- Status glows sit above the portrait/art but below the level medallion.
     -- This keeps resting/combat light from shining through the level badge.
     if frame.statusFrame then frame.statusFrame:SetFrameStrata(unitStrata); frame.statusFrame:SetFrameLevel(frame.sfLayerBase + 7) end
+    -- Dedicated click-cast button sits above the core frame but below target
+    -- aura buttons, preserving aura hover/click behavior.
+    if frame.sfClickButton then
+        frame.sfClickButton:SetFrameStrata(unitStrata)
+        frame.sfClickButton:SetFrameLevel(frame.sfLayerBase + 6)
+    end
     -- Special portrait back/front pieces are sibling frames rather than normal
     -- children, so move their strata with the owning unit frame as well.
     if frame.sfSpecialBackFrame then frame.sfSpecialBackFrame:SetFrameStrata(unitStrata) end
@@ -499,6 +738,7 @@ function SF:ApplyFrameLayerBase(frame, base)
             end
         end
     end
+    if self.ApplyClickAlertLayer then self:ApplyClickAlertLayer(frame,unitStrata,frame.sfLayerBase) end
     if frame.levelBadge then frame.levelBadge:SetFrameStrata(unitStrata); frame.levelBadge:SetFrameLevel(frame.sfLayerBase + 10) end
 
     -- Refresh after a layer change; this is intentionally redundant and
@@ -518,6 +758,22 @@ function SF:RefreshFrameLayers(topKey)
             self:ApplyFrameLayerBase(frame, (self.topFrameKey == key) and 60 or bases[key])
         end
     end
+
+    -- Party frames are one movable visual group, but each member is its own
+    -- unit frame. Keep all four on the same layer so no member can cut through
+    -- another when the group is raised or when Blizzard panels are opened.
+    if self.partyFrames then
+        local partyBase=(self.topFrameKey=="party") and 70 or 50
+        for i=1,table.getn(self.partyFrames) do
+            if self.partyFrames[i] then self:ApplyFrameLayerBase(self.partyFrames[i],partyBase+i-1) end
+        end
+    end
+    if self.raidFrames then
+        local raidBase=(self.topFrameKey=="raid") and 80 or 55
+        for i=1,table.getn(self.raidFrames) do
+            if self.raidFrames[i] then self:ApplyFrameLayerBase(self.raidFrames[i],raidBase+i-1) end
+        end
+    end
 end
 
 function SF:BringToFront(frame)
@@ -535,24 +791,37 @@ local function SetupDrag(frame, key)
         SF:BringToFront(this)
     end)
     frame:SetScript("OnMouseUp", function()
-        if arg1 == "RightButton" then
-            UnitMenuForFrame(this)
-        elseif arg1 == "LeftButton" and this.frameKey == "player" and SlamFramesDB.selfTargetOnClick and SlamFramesDB.locked then
-            -- Locked-frame left click behaves like the native PlayerFrame:
-            -- select yourself so the Target frame becomes your selected unit.
-            if type(TargetUnit)=="function" then TargetUnit("player") end
-            SF:UpdateTarget()
-        end
+        -- TEST50: locked clicks are handled by the dedicated child Button's
+        -- OnClick script. The parent OnMouseUp is intentionally inert while
+        -- locked so one hardware click can never dispatch twice.
+        if SlamFramesDB.locked then return end
+    end)
+    frame:SetScript("OnEnter", function()
+        if SF.ShowClickCastingTooltip then SF:ShowClickCastingTooltip(this) end
+    end)
+    frame:SetScript("OnLeave", function()
+        if GameTooltip then GameTooltip:Hide() end
     end)
     frame:SetScript("OnDragStart", function()
         if not SlamFramesDB.locked then
             SF:BringToFront(this)
-            this:StartMoving()
+            if this.frameKey=="party" and SF.partyFrames and SF.partyFrames[1] then
+                SF.partyFrames[1]:StartMoving()
+            else
+                this:StartMoving()
+            end
         end
     end)
     frame:SetScript("OnDragStop", function()
-        this:StopMovingOrSizing()
-        SaveAnchor(this, this.frameKey)
+        if this.frameKey=="party" and SF.partyFrames and SF.partyFrames[1] then
+            local root=SF.partyFrames[1]
+            root:StopMovingOrSizing()
+            SaveAnchor(root,"party")
+            if SF.LayoutPartyFrames then SF:LayoutPartyFrames() end
+        else
+            this:StopMovingOrSizing()
+            SaveAnchor(this, this.frameKey)
+        end
     end)
     if frame.EnableMouseWheel then
         frame:SetScript("OnMouseWheel", function()
@@ -712,6 +981,8 @@ local function CreateUnitFrame(kind,key,unit,cfg)
     return f
 end
 
+SF.CreateUnitFrame = CreateUnitFrame
+
 local function LayoutText(frame,scale,trim)
     local cfg=frame.cfg
     trim=trim or 0
@@ -722,7 +993,10 @@ local function LayoutText(frame,scale,trim)
 
     -- Name: geometry follows the unit frame, font size has its own multiplier.
     frame.name:ClearAllPoints()
-    frame.name:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",cfg.name.x*scale,cfg.name.y*scale)
+    local nameX=cfg.name.x
+    if frame.frameKey=="party" then nameX=nameX+(tonumber(SlamFramesDB.partyNameOffset) or 0) end
+    if frame.frameKey=="raid" then nameX=nameX+(tonumber(SlamFramesDB.raidNameOffset) or 0) end
+    frame.name:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",nameX*scale,cfg.name.y*scale)
     frame.name:SetWidth(math.max(40,cfg.name.w-trim)*scale)
     frame.name:SetHeight(math.max(cfg.name.h*scale,(cfg.name.font+8)*scale*nameScale))
     SetScaledFont(frame.name,cfg.name.font,scale,nameScale)
@@ -800,13 +1074,40 @@ function SF:LayoutFrame(frame,key,scale)
     self:ApplyHealthTextMode(frame)
 end
 
+function SF:LayoutPartyFrames()
+    if not self.partyFrames then return end
+    local scale=SlamFramesDB.scales.party or DEFAULT_SCALES.party
+    local spacing=(SlamFramesDB.partySpacing or 8)*scale
+    local i,f,previous
+    for i=1,table.getn(self.partyFrames) do
+        f=self.partyFrames[i]
+        if f then
+            self:LayoutFrame(f,"party",scale)
+            f:ClearAllPoints()
+            if i==1 then
+                ApplyAnchor(f,"party")
+            else
+                previous=self.partyFrames[i-1]
+                f:SetPoint("TOPLEFT",previous,"BOTTOMLEFT",0,-spacing)
+            end
+        end
+    end
+    self:RefreshFrameLayers(self.topFrameKey)
+end
+
 function SF:SetFrameScale(key,value,quiet)
     key=NormalizeKey(key)
     if not key then return end
-    value=Clamp(value,0.40,3.00)
+    value=Clamp(tonumber(value) or DEFAULT_SCALES[key] or 0.60,0.40,3.00)
     SlamFramesDB.scales[key]=value
-    local f=FrameForKey(key)
-    if f then self:LayoutFrame(f,key,value) end
+    if key=="party" then
+        self:LayoutPartyFrames()
+    elseif key=="raid" then
+        if self.LayoutRaidFrames then self:LayoutRaidFrames() end
+    else
+        local f=FrameForKey(key)
+        if f then self:LayoutFrame(f,key,value) end
+    end
     self:UpdateMoveLabels()
     if self.RefreshSettings then self:RefreshSettings() end
     if not quiet then Print(key.." scale set to "..string.format("%.2f",value)) end
@@ -817,6 +1118,8 @@ local function RelayoutAllText()
         SF:LayoutFrame(SF.player,"player",SlamFramesDB.scales.player or DEFAULT_SCALES.player)
         SF:LayoutFrame(SF.target,"target",SlamFramesDB.scales.target or DEFAULT_SCALES.target)
         SF:LayoutFrame(SF.tot,"tot",SlamFramesDB.scales.tot or DEFAULT_SCALES.tot)
+        if SF.LayoutPartyFrames then SF:LayoutPartyFrames() end
+        if SF.LayoutRaidFrames then SF:LayoutRaidFrames() end
     end
     if SF.RefreshSettings then SF:RefreshSettings() end
 end
@@ -908,12 +1211,18 @@ end
 
 function SF:SetPortraitZoom(key,value,quiet)
     key=NormalizeKey(key)
-    if key~="player" and key~="target" and key~="tot" then return false end
+    if key~="player" and key~="target" and key~="tot" and key~="party" and key~="raid" then return false end
     value=Clamp(tonumber(value) or 1.00,1.00,1.50)
     value=math.floor(value*100+0.5)/100
     SlamFramesDB.portraitZooms[key]=value
-    local f=FrameForKey(key)
-    if f and f.portrait then f.portrait:SetZoom(value) end
+    if (key=="party" or key=="raid") then
+        local frames=(key=="party") and self.partyFrames or self.raidFrames
+        local i
+        if frames then for i=1,table.getn(frames) do if frames[i] and frames[i].portrait then frames[i].portrait:SetZoom(value) end end end
+    else
+        local f=FrameForKey(key)
+        if f and f.portrait then f.portrait:SetZoom(value) end
+    end
     if self.RefreshSettings then self:RefreshSettings() end
     if not quiet then Print(key.." portrait zoom set to "..string.format("%.2f",value)) end
     return true
@@ -929,16 +1238,22 @@ end
 
 function SF:SetWidthPreset(key,value,quiet)
     key=NormalizeKey(key)
-    if key~="player" and key~="target" and key~="tot" then
-        if not quiet then Print("bar length is adjustable for player, target, or target-of-target") end
+    if key~="player" and key~="target" and key~="tot" and key~="party" and key~="raid" then
+        if not quiet then Print("bar length is adjustable for player, target, target-of-target, party, or raid") end
         return false
     end
-    local cfg=(key=="player") and C.player or ((key=="target") and C.target or C.tot)
+    local cfg=(key=="player") and C.player or ((key=="target") and C.target or ((key=="tot") and C.tot or ((key=="raid") and C.raid or C.party)))
     local maxPreset=(cfg.widthSlices and cfg.widthSlices.maxPreset) or 0
     value=Clamp(math.floor((tonumber(value) or 0)+0.5),0,maxPreset)
     SlamFramesDB.widthPresets[key]=value
-    local f=FrameForKey(key)
-    if f then self:LayoutFrame(f,key,SlamFramesDB.scales[key] or DEFAULT_SCALES[key]) end
+    if key=="party" then
+        self:LayoutPartyFrames()
+    elseif key=="raid" then
+        if self.LayoutRaidFrames then self:LayoutRaidFrames() end
+    else
+        local f=FrameForKey(key)
+        if f then self:LayoutFrame(f,key,SlamFramesDB.scales[key] or DEFAULT_SCALES[key]) end
+    end
     if self.RefreshSettings then self:RefreshSettings() end
     if not quiet then Print(key.." bar length set to "..WidthPercent(key,cfg).."%") end
     return true
@@ -950,6 +1265,8 @@ function SF:ApplyPositions()
     self:LayoutFrame(self.target,"target",SlamFramesDB.scales.target or DEFAULT_SCALES.target)
     self:LayoutFrame(self.tot,"tot",SlamFramesDB.scales.tot or DEFAULT_SCALES.tot)
     ApplyAnchor(self.player,"player"); ApplyAnchor(self.target,"target"); ApplyAnchor(self.tot,"tot")
+    self:LayoutPartyFrames()
+    if self.LayoutRaidFrames then self:LayoutRaidFrames() end
     self:RefreshFrameLayers(self.topFrameKey)
 end
 
@@ -963,12 +1280,39 @@ function SF:UpdateMoveLabels()
             UpdateFrameMouseState(f)
         end
     end
+    if self.partyFrames then
+        local i
+        for i=1,table.getn(self.partyFrames) do
+            f=self.partyFrames[i]
+            if f and f.moveLabel then
+                if i==1 and not SlamFramesDB.locked then
+                    f.moveLabel:SetText("PARTY  "..string.format("%.2f",SlamFramesDB.scales.party or DEFAULT_SCALES.party).."x")
+                    f.moveLabel:Show()
+                else
+                    f.moveLabel:Hide()
+                end
+                UpdateFrameMouseState(f)
+            end
+        end
+    end
+    if self.raidFrames then
+        local i
+        for i=1,table.getn(self.raidFrames) do
+            f=self.raidFrames[i]
+            if f and f.moveLabel then
+                if i==1 and not SlamFramesDB.locked then f.moveLabel:SetText("RAID  "..string.format("%.2f",SlamFramesDB.scales.raid or DEFAULT_SCALES.raid).."x"); f.moveLabel:Show() else f.moveLabel:Hide() end
+                UpdateFrameMouseState(f)
+            end
+        end
+    end
 end
 
 function SF:SetSmoothBars(enabled)
     SlamFramesDB.smoothBars=enabled and true or false
     local frames={self.player,self.target,self.tot}
     local i,f
+    if self.partyFrames then for i=1,table.getn(self.partyFrames) do table.insert(frames,self.partyFrames[i]) end end
+    if self.raidFrames then for i=1,table.getn(self.raidFrames) do table.insert(frames,self.raidFrames[i]) end end
     for i=1,table.getn(frames) do
         f=frames[i]
         if f then
@@ -983,6 +1327,16 @@ local function HealthTextModeForFrame(f)
     if f and f.frameKey=="tot" then
         local mode=SlamFramesDB.totHealthTextMode or "percent"
         if mode=="amount" then return "amount" end
+        return "percent"
+    end
+    if f and f.frameKey=="party" then
+        local mode=SlamFramesDB.partyHealthTextMode or "percent"
+        if mode=="amount" or mode=="off" then return mode end
+        return "percent"
+    end
+    if f and f.frameKey=="raid" then
+        local mode=SlamFramesDB.raidHealthTextMode or "percent"
+        if mode=="amount" or mode=="off" then return mode end
         return "percent"
     end
     return SlamFramesDB.healthTextMode or "percent"
@@ -1031,6 +1385,57 @@ function SF:SetToTHealthTextMode(mode,quiet)
     if self.RefreshSettings then self:RefreshSettings() end
     if not quiet then Print("ToT health text: "..mode) end
     return true
+end
+
+function SF:SetPartyHealthTextMode(mode,quiet)
+    mode=string.lower(mode or "")
+    if mode~="percent" and mode~="amount" and mode~="off" then return false end
+    SlamFramesDB.partyHealthTextMode=mode
+    self:UpdatePartyFrames()
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("party health text: "..mode) end
+    return true
+end
+
+function SF:SetPartyNameOffset(value,quiet)
+    value=Clamp(tonumber(value) or 0,-150,150)
+    value=Clamp(math.floor((value+2.5)/5)*5,-150,150)
+    SlamFramesDB.partyNameOffset=value
+    self:LayoutPartyFrames()
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("party name X set to "..value) end
+end
+
+function SF:SetPartySpacing(value,quiet)
+    value=Clamp(tonumber(value) or 8,0,40)
+    value=math.floor(value+0.5)
+    SlamFramesDB.partySpacing=value
+    self:LayoutPartyFrames()
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("party spacing set to "..value) end
+end
+
+function SF:SetPartyFramesEnabled(v,quiet)
+    SlamFramesDB.showPartyFrames=v and true or false
+    self:UpdatePartyFrames()
+    self:UpdateBlizzardPartyFrames()
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("party frames "..(SlamFramesDB.showPartyFrames and "ON" or "OFF")) end
+end
+
+function SF:SetPartyHideInRaid(v,quiet)
+    SlamFramesDB.partyHideInRaid=v and true or false
+    self:UpdatePartyFrames()
+    self:UpdateBlizzardPartyFrames()
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("hide party frames in raid "..(SlamFramesDB.partyHideInRaid and "ON" or "OFF")) end
+end
+
+function SF:ResetPartyPosition()
+    SlamFramesDB.anchors.party=CopyAnchor(DEFAULT_ANCHORS.party); SlamFramesDB.anchors.raid=CopyAnchor(DEFAULT_ANCHORS.raid)
+    self:LayoutPartyFrames()
+    if self.RefreshSettings then self:RefreshSettings() end
+    Print("party frame position reset.")
 end
 
 local function SetHealthTexts(f,cur,maxv)
@@ -1172,6 +1577,48 @@ function SF:UpdateTargetOfTarget()
     f.health:SetValue(cur,maxv,self.testMode); SetHealthTexts(f,cur,maxv)
     f.name:SetText(UnitDisplayName("targettarget","Ragepaw Worg")); SetLevelIndicator(f,"targettarget",82,true)
     UpdatePortrait(f); f:Show()
+end
+
+function SF:IsInRaidGroup()
+    if type(GetNumRaidMembers)=="function" then
+        local ok,n=pcall(GetNumRaidMembers)
+        if ok and (tonumber(n) or 0)>0 then return true end
+    end
+    return false
+end
+
+local PARTY_TEST_NAMES={"Aegis","Moonleaf","Ashen","Stormcall"}
+local PARTY_TEST_HEALTH={{6840,7200},{5120,6900},{7990,8100},{4360,6200}}
+
+function SF:UpdatePartyFrame(index)
+    local f=self.partyFrames and self.partyFrames[index]
+    if not f then return end
+    local unit="party"..index
+    f.unit=unit
+
+    if not SlamFramesDB.showPartyFrames then f:Hide(); return end
+    if SlamFramesDB.partyHideInRaid and self:IsInRaidGroup() and not self.testMode then f:Hide(); return end
+    if not UnitExists(unit) and not self.testMode then f:Hide(); return end
+
+    local cur,maxv
+    if self.testMode and not UnitExists(unit) then
+        cur=PARTY_TEST_HEALTH[index][1]; maxv=PARTY_TEST_HEALTH[index][2]
+    else
+        cur=UnitHealth(unit) or 0; maxv=UnitHealthMax(unit) or 1
+    end
+    f.health:SetValue(cur,maxv,self.testMode)
+    SetHealthTexts(f,cur,maxv)
+    f.name:SetText(UnitDisplayName(unit,PARTY_TEST_NAMES[index]))
+    SetLevelIndicator(f,unit,math.max(1,(UnitLevel("player") or 60)-(index-1)),false)
+    UpdatePortrait(f)
+    f:Show()
+    if self.UpdateHealPredictionForFrame then self:UpdateHealPredictionForFrame(f,unit) end
+end
+
+function SF:UpdatePartyFrames()
+    if not self.partyFrames then return end
+    local i
+    for i=1,table.getn(self.partyFrames) do self:UpdatePartyFrame(i) end
 end
 
 local function IsTexturePath(v)
@@ -1763,35 +2210,106 @@ local function HardHide(frame)
     frame:Hide(); frame.Show=function() end
 end
 
+function SF:UpdateBlizzardPartyFrames()
+    local suppress=SlamFramesDB and SlamFramesDB.showPartyFrames
+    local i,bf
+    for i=1,4 do
+        if type(getglobal)=="function" then bf=getglobal("PartyMemberFrame"..i)
+        elseif _G then bf=_G["PartyMemberFrame"..i] else bf=nil end
+        if bf then
+            if suppress then
+                if bf.sfSlamFramesOldAlpha==nil and bf.GetAlpha then bf.sfSlamFramesOldAlpha=bf:GetAlpha() end
+                if bf.sfSlamFramesOldMouse==nil and bf.IsMouseEnabled then bf.sfSlamFramesOldMouse=bf:IsMouseEnabled() end
+                bf:SetAlpha(0)
+                bf:EnableMouse(false)
+                bf:Hide()
+            else
+                if bf.sfSlamFramesOldAlpha~=nil then bf:SetAlpha(bf.sfSlamFramesOldAlpha); bf.sfSlamFramesOldAlpha=nil else bf:SetAlpha(1) end
+                if bf.sfSlamFramesOldMouse~=nil then bf:EnableMouse(bf.sfSlamFramesOldMouse and true or false); bf.sfSlamFramesOldMouse=nil else bf:EnableMouse(true) end
+                -- If Party Frames were disabled while already grouped, Blizzard
+                -- may not emit another roster event to reshow its frame. Restore
+                -- the visible party member immediately; later native events still
+                -- retain ownership of normal Blizzard visibility.
+                if UnitExists("party"..i) and bf.Show then bf:Show() end
+            end
+        end
+    end
+end
+
 function SF:HideBlizzardFrames()
-    if not SlamFramesDB.hideBlizzard then return end
-    HardHide(PlayerFrame); HardHide(TargetFrame); if TargetofTargetFrame then HardHide(TargetofTargetFrame) end
+    if SlamFramesDB.hideBlizzard then
+        HardHide(PlayerFrame); HardHide(TargetFrame); if TargetofTargetFrame then HardHide(TargetofTargetFrame) end
+    end
+    self:UpdateBlizzardPartyFrames()
 end
 
 function SF:SetLocked(v)
-    SlamFramesDB.locked=v and true or false; self:UpdateMoveLabels(); if self.RefreshSettings then self:RefreshSettings() end
-    if SlamFramesDB.locked then Print("locked. Right-click unit frames still opens the normal unit menu.") else Print("unlocked. Drag PLAYER, TARGET, or TOT independently; mouse-wheel a frame to resize it. Right-click still opens the normal unit menu.") end
+    SlamFramesDB.locked=v and true or false
+    self:UpdateMoveLabels()
+    if self.RefreshSettings then self:RefreshSettings() end
+    if SlamFramesDB.locked then
+        Print("locked. Left-click party frames targets the member; right-click opens the normal unit menu.")
+    else
+        Print("unlocked. Drag PLAYER, TARGET, TOT, or any PARTY frame; party members move as one group. Mouse-wheel a frame to resize it.")
+    end
 end
 
 function SF:Reset(key)
     key=NormalizeKey(key)
     if key then
         SlamFramesDB.anchors[key]=CopyAnchor(DEFAULT_ANCHORS[key]); SlamFramesDB.scales[key]=DEFAULT_SCALES[key]
-        if SlamFramesDB.widthPresets and (key=="player" or key=="target" or key=="tot") then SlamFramesDB.widthPresets[key]=1 end
+        if SlamFramesDB.widthPresets and (key=="player" or key=="target" or key=="tot" or key=="party") then SlamFramesDB.widthPresets[key]=1 end
         if SlamFramesDB.portraitZooms then
-            if key=="tot" then SlamFramesDB.portraitZooms[key]=1.08 else SlamFramesDB.portraitZooms[key]=1.00 end
+            if key=="tot" or key=="party" then SlamFramesDB.portraitZooms[key]=1.08 else SlamFramesDB.portraitZooms[key]=1.00 end
         end
-        local f=FrameForKey(key); if f then self:LayoutFrame(f,key,DEFAULT_SCALES[key]); ApplyAnchor(f,key) end
+        if key=="party" then
+            SlamFramesDB.partyNameOffset=0; SlamFramesDB.partySpacing=8
+            self:LayoutPartyFrames()
+        else
+            local f=FrameForKey(key); if f then self:LayoutFrame(f,key,DEFAULT_SCALES[key]); ApplyAnchor(f,key) end
+        end
         self:UpdateMoveLabels(); if self.RefreshSettings then self:RefreshSettings() end; Print(key.." reset to the SlamFrames default profile."); return
     end
-    SlamFramesDB.anchors.player=CopyAnchor(DEFAULT_ANCHORS.player); SlamFramesDB.anchors.target=CopyAnchor(DEFAULT_ANCHORS.target); SlamFramesDB.anchors.tot=CopyAnchor(DEFAULT_ANCHORS.tot)
-    SlamFramesDB.scales.player=DEFAULT_SCALES.player; SlamFramesDB.scales.target=DEFAULT_SCALES.target; SlamFramesDB.scales.tot=DEFAULT_SCALES.tot
+    SlamFramesDB.anchors.player=CopyAnchor(DEFAULT_ANCHORS.player); SlamFramesDB.anchors.target=CopyAnchor(DEFAULT_ANCHORS.target); SlamFramesDB.anchors.tot=CopyAnchor(DEFAULT_ANCHORS.tot); SlamFramesDB.anchors.party=CopyAnchor(DEFAULT_ANCHORS.party)
+    SlamFramesDB.scales.player=DEFAULT_SCALES.player; SlamFramesDB.scales.target=DEFAULT_SCALES.target; SlamFramesDB.scales.tot=DEFAULT_SCALES.tot; SlamFramesDB.scales.party=DEFAULT_SCALES.party; SlamFramesDB.scales.raid=DEFAULT_SCALES.raid
     SlamFramesDB.locked=true
     SlamFramesDB.hideBlizzard=true
     SlamFramesDB.showAuras=true
     SlamFramesDB.smoothBars=true
     SlamFramesDB.healthTextMode="amount"
     SlamFramesDB.totHealthTextMode="percent"
+    SlamFramesDB.partyHealthTextMode="percent"
+    SlamFramesDB.showPartyFrames=true
+    SlamFramesDB.partyHideInRaid=true
+    SlamFramesDB.partySpacing=8
+    SlamFramesDB.partyNameOffset=0
+    SlamFramesDB.showRaidFrames=true
+    SlamFramesDB.raidHealthTextMode="percent"
+    SlamFramesDB.raidSpacing=4
+    SlamFramesDB.raidGroupSpacing=10
+    SlamFramesDB.raidGroupRowSpacing=36
+    SlamFramesDB.raidGroupsPerRow=8
+    SlamFramesDB.raidNameOffset=0
+    SlamFramesDB.raidShowGroupHeaders=true
+    SlamFramesDB.raidCompactMode=false
+    SlamFramesDB.raidOpacity=1.00
+    SlamFramesDB.raidClassColoredNames=false
+    SlamFramesDB.raidPreviewSize=20
+    SlamFramesDB.raidPreviewDebuffs=false
+    SlamFramesDB.raidDebuffGlowSize=2
+    SlamFramesDB.raidPreviewMainTanks=false
+    SlamFramesDB.clickCastingEnabled=false
+    SlamFramesDB.clickCastingApplyNormal=false
+    SlamFramesDB.clickCastingTooltip=true
+    SlamFramesDB.clickBindings={
+        LeftButton={mode="base",base="target",spell=""},
+        RightButton={mode="base",base="menu",spell=""},
+        MiddleButton={mode="base",base="none",spell=""},
+    }
+    SlamFramesDB.partyDebuffAlerts=true
+    SlamFramesDB.partyDebuffOnlyDispellable=true
+    SlamFramesDB.partyDebuffMessage=true
+    SlamFramesDB.partyDebuffSound=false
     SlamFramesDB.showPowerNumbers=true
     SlamFramesDB.showRestingEffect=true
     SlamFramesDB.showCCEffect=true
@@ -1808,8 +2326,8 @@ function SF:Reset(key)
     SlamFramesDB.auraShowCooldownSweep=false
     SlamFramesDB.auraShowTimerText=true
     SlamFramesDB.auraTimerTextScale=1.00
-    SlamFramesDB.widthPresets={player=1,target=1,tot=1}
-    SlamFramesDB.portraitZooms={player=1.00,target=1.00,tot=1.08}
+    SlamFramesDB.widthPresets={player=1,target=1,tot=1,party=1,raid=1}
+    SlamFramesDB.portraitZooms={player=1.00,target=1.00,tot=1.08,party=1.08,raid=1.08}
     SlamFramesDB.ccAnchor={x=-35.55593730832338,y=73.98975554593724}
     SlamFramesDB.combatGlowIntensity=1.30
     SlamFramesDB.showMinimapButton=true
@@ -1817,6 +2335,7 @@ function SF:Reset(key)
     SlamFramesDB.minimapRadius=80
     SlamFramesDB.showPlayerCastbar=true
     SlamFramesDB.hideBlizzardCastbar=true
+    SlamFramesDB.hideBlizzardErrorText=false
     SlamFramesDB.castbarShowIcon=true
     SlamFramesDB.castbarShowTimer=true
     SlamFramesDB.castbarShowLatency=true
@@ -1829,37 +2348,71 @@ function SF:Reset(key)
     if self.UpdateMinimapButtonPosition then self:UpdateMinimapButtonPosition() end
     if self.SetMinimapButtonShown then self:SetMinimapButtonShown(true) end
     if self.castbar and self.LayoutCastBar then self:LayoutCastBar() end
+    if self.ApplyBlizzardErrorTextSetting then self:ApplyBlizzardErrorTextSetting() end
     if self.UpdatePlayerEffects then self:UpdatePlayerEffects(true) end
     if self.HideBlizzardFrames then self:HideBlizzardFrames() end
     self:RefreshAll()
     self:UpdateMoveLabels(); if self.RefreshSettings then self:RefreshSettings() end; Print("SlamFrames reset to the default profile.")
 end
 
+function SF:ApplyBlizzardErrorTextSetting()
+    if not UIErrorsFrame then return end
+    if SlamFramesDB and SlamFramesDB.hideBlizzardErrorText then
+        if UIErrorsFrame.UnregisterEvent then
+            pcall(function() UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE") end)
+        end
+        if UIErrorsFrame.Clear then pcall(function() UIErrorsFrame:Clear() end) end
+    else
+        if UIErrorsFrame.RegisterEvent then
+            pcall(function() UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE") end)
+        end
+    end
+end
+
+function SF:SetBlizzardErrorTextHidden(value,quiet)
+    SlamFramesDB.hideBlizzardErrorText = value and true or false
+    self:ApplyBlizzardErrorTextSetting()
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then
+        Print("Blizzard red error text "..(SlamFramesDB.hideBlizzardErrorText and "hidden" or "shown")..".")
+    end
+end
+
 function SF:CreateFrames()
-    self.player=CreateUnitFrame("Player","player","player",C.player)
-    self.target=CreateUnitFrame("Target","target","target",C.target)
-    self.tot=CreateUnitFrame("ToT","tot","targettarget",C.tot)
+    self:ApplyArtResolutionConfigs()
+    local cfgs = self.activeConfigs or C
+    self.player=CreateUnitFrame("Player","player","player",cfgs.player or C.player)
+    self.target=CreateUnitFrame("Target","target","target",cfgs.target or C.target)
+    self.tot=CreateUnitFrame("ToT","tot","targettarget",cfgs.tot or C.tot)
+    self.partyFrames={}
+    local i
+    for i=1,4 do
+        self.partyFrames[i]=CreateUnitFrame("Party"..i,"party","party"..i,cfgs.party or C.party)
+        self.partyFrames[i].partyIndex=i
+    end
+    if self.CreatePartyDebuffAlerts then self:CreatePartyDebuffAlerts() end
+    -- TEST54: raid frames are created lazily by RaidFrames.lua only when Test Frames is active or a live raid exists.
     self:CreateAuras(); self:ApplyPositions(); self:RefreshFrameLayers(); self:UpdateMoveLabels(); self:SetSmoothBars(SlamFramesDB.smoothBars)
 end
 
-function SF:RefreshAll() self:UpdatePlayer(); self:UpdateTarget() end
+function SF:RefreshAll() self:UpdatePlayer(); self:UpdateTarget(); self:UpdatePartyFrames(); if self.UpdateRaidFrames then self:UpdateRaidFrames() end; self:UpdateBlizzardPartyFrames(); if self.UpdatePartyDebuffAlerts then self:UpdatePartyDebuffAlerts() end end
 
 local function HandleScale(rest)
     local s,e,first,second=string.find(rest or "","^%s*(%S+)%s*(%S*)%s*$")
     first=first or ""; second=second or ""
     local n=tonumber(first)
-    if n then SF:SetFrameScale("player",n,true); SF:SetFrameScale("target",n,true); SF:SetFrameScale("tot",n,true); Print("all frame scales set to "..string.format("%.2f",Clamp(n,0.40,3.00))); return end
+    if n then SF:SetFrameScale("player",n,true); SF:SetFrameScale("target",n,true); SF:SetFrameScale("tot",n,true); SF:SetFrameScale("party",n,true); Print("all frame scales set to "..string.format("%.2f",Clamp(n,0.40,3.00))); return end
     local key=NormalizeKey(first); n=tonumber(second)
     if key and n then SF:SetFrameScale(key,n,false); return end
-    Print("usage: /sf scale 0.60 OR /sf scale player 0.60 OR target/tot")
+    Print("usage: /sf scale 0.60 OR /sf scale player|target|tot|party 0.60")
 end
 
 local function HandleWidth(rest)
     local s,e,first,second=string.find(rest or "","^%s*(%S+)%s*(%S*)%s*$")
     local key=NormalizeKey(first or "")
     local n=tonumber(second)
-    if not key or (key~="player" and key~="target" and key~="tot") or not n then
-        Print("usage: /sf width player|target|tot 0-3 (0=100%, 1=~90%, 2=~80%, 3=~70%)")
+    if not key or (key~="player" and key~="target" and key~="tot" and key~="party") or not n then
+        Print("usage: /sf width player|target|tot|party 0-3 (0=100%, 1=~90%, 2=~80%, 3=~70%)")
         return
     end
     -- Also accept the visible percentage values for convenience.
@@ -1882,6 +2435,20 @@ function SF:HandleSlash(msg)
     elseif cmd=="auras" then SlamFramesDB.showAuras=not SlamFramesDB.showAuras; self:UpdateAuras(); if self.RefreshSettings then self:RefreshSettings() end; Print("target auras "..(SlamFramesDB.showAuras and "on" or "off")..".")
     elseif cmd=="health" then if not self:SetHealthTextMode(rest,false) then Print("usage: /sf health percent | amount | both | off") end
     elseif cmd=="tothealth" then if not self:SetToTHealthTextMode(rest,false) then Print("usage: /sf tothealth percent | amount") end
+    elseif cmd=="partyhealth" then if not self:SetPartyHealthTextMode(rest,false) then Print("usage: /sf partyhealth percent | amount | off") end
+    elseif cmd=="partynamex" then local n=tonumber(rest); if n then self:SetPartyNameOffset(n,false) else Print("usage: /sf partynamex -150 to 150") end
+    elseif cmd=="partyspacing" then local n=tonumber(rest); if n then self:SetPartySpacing(n,false) else Print("usage: /sf partyspacing 0-40") end
+    elseif cmd=="party" then
+        local v=string.lower(rest or "")
+        if v=="on" then self:SetPartyFramesEnabled(true,false)
+        elseif v=="off" then self:SetPartyFramesEnabled(false,false)
+        elseif v=="reset" then self:Reset("party")
+        else self:SetPartyFramesEnabled(not SlamFramesDB.showPartyFrames,false) end
+    elseif cmd=="partyraid" then
+        local v=string.lower(rest or "")
+        if v=="show" or v=="off" then self:SetPartyHideInRaid(false,false)
+        elseif v=="hide" or v=="on" then self:SetPartyHideInRaid(true,false)
+        else Print("usage: /sf partyraid hide | show") end
     elseif cmd=="power" then SlamFramesDB.showPowerNumbers=not SlamFramesDB.showPowerNumbers; self:RefreshAll(); if self.RefreshSettings then self:RefreshSettings() end; Print("power numbers "..(SlamFramesDB.showPowerNumbers and "on" or "off")..".")
     elseif cmd=="selftarget" or cmd=="clickself" then
         local v=string.lower(rest or "")
@@ -1897,6 +2464,14 @@ function SF:HandleSlash(msg)
     elseif cmd=="textscale" then local n=tonumber(rest); if n then self:SetTextScale(n,false) else Print("usage: /sf textscale 1.00 (legacy: sets all text)") end
     elseif cmd=="aurascale" then local n=tonumber(rest); if n then self:SetAuraScale(n,false) else Print("usage: /sf aurascale 1.00") end
     elseif cmd=="aurarowgap" or cmd=="aurarowspacing" then local n=tonumber(rest); if n then self:SetAuraRowSpacing(n,false) else Print("usage: /sf aurarowgap 1.0") end
+    elseif cmd=="clickdebug" then
+        if self.SetClickCastDebug then self:SetClickCastDebug(not self.clickCastDebug,false)
+        else Print("click-cast debug is unavailable.") end
+    elseif cmd=="clickdiag" then
+        local sw=tostring(SUPERWOW_VERSION or (type(GetSuperWoWVersion)=="function" and GetSuperWoWVersion()) or "?")
+        Print("click diag: SuperWoW="..sw.." CastSpellByName="..tostring(type(CastSpellByName)).." SetMouseoverUnit="..tostring(type(SetMouseoverUnit)).." UseContainerItem="..tostring(type(UseContainerItem)))
+        local mod=(self.GetActiveClickModifier and self:GetActiveClickModifier()) or "?"
+        Print("click diag binding: modifier="..tostring(mod).." left="..tostring(self.GetClickBindingText and self:GetClickBindingText(mod=="multi" and "none" or mod,"LeftButton") or "?"))
     elseif cmd=="auradiag" then
         local guid=GetCurrentTargetAuraGuid()
         local np=(type(GetSpellDuration)=="function") and "yes" or "no"
@@ -1929,7 +2504,7 @@ function SF:HandleSlash(msg)
     elseif cmd=="portraitzoom" then
         local key,val=string.match(rest or "","^%s*(%S+)%s+(%S+)%s*$")
         val=tonumber(val)
-        if not key or not val or not self:SetPortraitZoom(key,val,true) then Print("usage: /sf portraitzoom player|target|tot 1.00-1.50")
+        if not key or not val or not self:SetPortraitZoom(key,val,true) then Print("usage: /sf portraitzoom player|target|tot|party 1.00-1.50")
         else Print(NormalizeKey(key).." portrait zoom set to "..string.format("%.2f",Clamp(val,1.00,1.50))) end
     elseif cmd=="totrelative" then
         self:ResetToTRelative()
@@ -1989,7 +2564,7 @@ function SF:HandleSlash(msg)
         else Print("usage: /sf skin light | dark") end
     elseif cmd=="settings" then if self.ToggleSettings then self:ToggleSettings() end
     elseif cmd=="blizz" then SlamFramesDB.hideBlizzard=not SlamFramesDB.hideBlizzard; Print("hide Blizzard frames is now "..(SlamFramesDB.hideBlizzard and "ON" or "OFF")..". /reload to apply.")
-    else Print("commands: /sf settings | skin light/dark | castbar on/off/move/reset/test | unlock | lock | scale [player/target/tot] 0.60 | width [player/target/tot] 0-3 | portraitzoom [player/target/tot] 1.00-1.50 | totrelative | ccmove | ccreset | nametext 1.30 | healthtextscale 1.00 | powertextscale 1.00 | leveltextscale 1.00 | aurascale 1.00 | aurarowgap 1.0 | auratimer on/off | auratimerscale 1.00 | auradiag | combatglow on/off | combatglowstrength 0.50-2.00 | minimap on/off/reset | reset [player/target/tot] | health percent/amount/both/off | tothealth percent/amount | selftarget on/off | power | test | auras | smooth | blizz") end
+    else Print("commands: /sf settings | skin light/dark | castbar on/off/move/reset/test | unlock | lock | scale [player/target/tot/party] 0.60 | width [player/target/tot/party] 0-3 | portraitzoom [player/target/tot/party] 1.00-1.50 | totrelative | ccmove | ccreset | nametext 1.30 | healthtextscale 1.00 | powertextscale 1.00 | leveltextscale 1.00 | aurascale 1.00 | aurarowgap 1.0 | auratimer on/off | auratimerscale 1.00 | auradiag | combatglow on/off | combatglowstrength 0.50-2.00 | minimap on/off/reset | reset [player/target/tot/party] | health percent/amount/both/off | tothealth percent/amount | party on/off/reset | partyhealth percent/amount/off | partynamex -150..150 | partyspacing 0-40 | partyraid hide/show | selftarget on/off | power | test | auras | smooth | blizz") end
 end
 
 local eventFrame=CreateFrame("Frame","SlamFrames_EventFrame",UIParent)
@@ -2014,6 +2589,10 @@ eventFrame:RegisterEvent("PLAYER_ENTER_COMBAT")
 eventFrame:RegisterEvent("PLAYER_LEAVE_COMBAT")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+eventFrame:RegisterEvent("PARTY_MEMBERS_CHANGED")
+eventFrame:RegisterEvent("PARTY_LEADER_CHANGED")
+eventFrame:RegisterEvent("RAID_ROSTER_UPDATE")
+eventFrame:RegisterEvent("SPELLS_CHANGED")
 
 local function RegisterAuraTimingEvent(name)
     local ok=pcall(function() eventFrame:RegisterEvent(name) end)
@@ -2052,24 +2631,29 @@ eventFrame:SetScript("OnEvent",function()
 
     if ev=="VARIABLES_LOADED" then
         DBInit(); SF.testMode=SlamFramesDB.testMode and true or false
+        if SF.ApplyBlizzardErrorTextSetting then SF:ApplyBlizzardErrorTextSetting() end
         if type(SetCVar)=="function" then pcall(SetCVar,"NP_EnableAuraCastEvents","1") end
         if not SF.player then SF:CreateFrames() end
+        if SF.RefreshDispelCapabilities then SF:RefreshDispelCapabilities() end
         if SF.CreatePlayerEffects then SF:CreatePlayerEffects() end
         if SF.CreateCastBar then SF:CreateCastBar() end
         if SF.CreateSettingsPanel then SF:CreateSettingsPanel() end
         if SF.CreateMinimapButton then SF:CreateMinimapButton() end
         if SF.ApplySkin then SF:ApplySkin(true) end
         SF:HideBlizzardFrames(); SF:RefreshAll()
-        Print("v"..C.version.." loaded. New matching player cast bar is available under the Cast Bar settings tab.")
+        Print("v"..C.version.." loaded. Settings profile: "..(SF.activeCharacterProfile or "this character")..". Party click casting is available under the Click Cast settings tab.")
         return
     end
     if not SF.player then return end
-    if ev=="PLAYER_ENTERING_WORLD" then SF:HideBlizzardFrames(); SF:RefreshAll(); if SF.UpdateMinimapButtonIcon then SF:UpdateMinimapButtonIcon() end; if SF.ApplyExternalUISkin then SF:ApplyExternalUISkin() end
-    elseif ev=="PLAYER_LEVEL_UP" then SF:UpdatePlayer(); SF:UpdateTarget()
+    if ev=="PLAYER_ENTERING_WORLD" then SF:HideBlizzardFrames(); if SF.ApplyBlizzardErrorTextSetting then SF:ApplyBlizzardErrorTextSetting() end; SF:RefreshAll(); if SF.RefreshDispelCapabilities then SF:RefreshDispelCapabilities() end; if SF.UpdatePartyDebuffAlerts then SF:UpdatePartyDebuffAlerts() end; if SF.UpdateMinimapButtonIcon then SF:UpdateMinimapButtonIcon() end; if SF.ApplyExternalUISkin then SF:ApplyExternalUISkin() end
+    elseif ev=="PARTY_MEMBERS_CHANGED" or ev=="PARTY_LEADER_CHANGED" or ev=="RAID_ROSTER_UPDATE" then SF:UpdatePartyFrames(); if SF.UpdateRaidFrames then SF:UpdateRaidFrames() end; SF:UpdateBlizzardPartyFrames(); if SF.UpdatePartyDebuffAlerts then SF:UpdatePartyDebuffAlerts() end
+    elseif ev=="SPELLS_CHANGED" then if SF.RefreshDispelCapabilities then SF:RefreshDispelCapabilities() end; if SF.UpdatePartyDebuffAlerts then SF:UpdatePartyDebuffAlerts() end
+    elseif ev=="PLAYER_LEVEL_UP" then SF:UpdatePlayer(); SF:UpdateTarget(); SF:UpdatePartyFrames(); if SF.UpdateRaidFrames then SF:UpdateRaidFrames() end
     elseif ev=="UNIT_LEVEL" then
         if u=="player" then SF:UpdatePlayer(); SF:UpdateTarget()
         elseif u=="target" then SF:UpdateTarget()
-        elseif u=="targettarget" then SF:UpdateTargetOfTarget() end
+        elseif u=="targettarget" then SF:UpdateTargetOfTarget()
+        elseif u and string.sub(u,1,5)=="party" then SF:UpdatePartyFrames() elseif u and string.sub(u,1,4)=="raid" and SF.UpdateRaidFrame then SF:UpdateRaidFrame(tonumber(string.sub(u,5)) or 1) end
     elseif ev=="PLAYER_TARGET_CHANGED" then SF.lastTargetAuraGuid=GetUnitGuidCompat("target"); SF:UpdateTarget()
     elseif ev=="PLAYER_ENTER_COMBAT" or ev=="PLAYER_REGEN_DISABLED" then
         SF.inCombat=true; if SF.UpdatePlayerEffects then SF:UpdatePlayerEffects(true) end
@@ -2078,11 +2662,20 @@ eventFrame:SetScript("OnEvent",function()
     elseif ev=="PLAYER_UPDATE_RESTING" or ev=="PLAYER_AURAS_CHANGED" then if SF.UpdatePlayerEffects then SF:UpdatePlayerEffects(true) end
     elseif u=="player" then SF:UpdatePlayer(); if SF.UpdateMinimapButtonIcon then SF:UpdateMinimapButtonIcon() end; if SF.UpdatePlayerEffects then SF:UpdatePlayerEffects(true) end
     elseif u=="target" then SF:UpdateTarget()
-    elseif u=="targettarget" then SF:UpdateTargetOfTarget() end
+    elseif u=="targettarget" then SF:UpdateTargetOfTarget()
+    elseif u and string.sub(u,1,5)=="party" then
+        SF:UpdatePartyFrames()
+        if ev=="UNIT_AURA" and SF.UpdatePartyDebuffAlerts then SF:UpdatePartyDebuffAlerts(u) end
+    elseif u and string.sub(u,1,4)=="raid" and SF.UpdateRaidFrame then
+        SF:UpdateRaidFrame(tonumber(string.sub(u,5)) or 1)
+    end
 end)
 
 local reconcileElapsed=0
 eventFrame:SetScript("OnUpdate",function()
+    -- TEST49: click-cast target restoration must run faster than the normal
+    -- 0.20s UI reconciliation cadence.
+    if SF.ProcessClickTargetRestore then SF:ProcessClickTargetRestore() end
     reconcileElapsed=reconcileElapsed+(arg1 or 0)
     if reconcileElapsed<0.20 then return end
     reconcileElapsed=0
@@ -2098,6 +2691,7 @@ eventFrame:SetScript("OnUpdate",function()
         end
     end
 
+    if SF.player and SF.UpdateBlizzardPartyFrames then SF:UpdateBlizzardPartyFrames() end
     PruneAuraTimingCache()
     if SF.player and (UnitExists("target") or SF.testMode) then SF:UpdateTargetOfTarget(); SF:UpdateAuras() end
 end)

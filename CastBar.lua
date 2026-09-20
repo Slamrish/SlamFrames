@@ -262,7 +262,7 @@ function SF:CreateCastBar()
     cb.icon=cb.iconFrame:CreateTexture(nil,"ARTWORK")
     cb.icon:SetTexCoord(.08,.92,.08,.92)
     cb.iconBorder=cb.iconFrame:CreateTexture(nil,"OVERLAY")
-    cb.iconBorder:SetTexture(TEX.."aura_border.tga")
+    cb.iconBorder:SetTexture((SF.GetSkinTexture and SF:GetSkinTexture("aura_border.tga")) or (TEX.."aura_border.tga"))
 
     -- Body uses one 512x64 source texture in three slices. The caps retain
     -- their proportions while only the straight middle section stretches.

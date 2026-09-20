@@ -1,8 +1,8 @@
--- SlamFrames v2.5.1
+-- SlamFrames v3.0.0
 -- Stable visual geometry + true layout scaling + settings/status pass.
 
 SlamFrames_Config = {
-    version = "2.5.1",
+    version = "3.0.0",
     texturePath = "Interface\\AddOns\\SlamFrames\\Textures\\",
     levelBadgeTexture = "level_badge.tga",
     combatGlowTexture = "combat_glow.tga",
@@ -119,6 +119,83 @@ SlamFrames_Config = {
         -- the smaller ToT health cavity (~100/90/80/70%).
         widthSlices = { left = 78, right = 10, step = 18, maxPreset = 3 },
 
+        portrait = {
+            x = 38.0, y = 39.3,
+            size = 66,
+            slices = 44,
+            zoom = 1.08,
+            offsetX = 0.00,
+            offsetY = 0.00,
+        },
+        health = { x = 74.5, y = 26.6, w = 178.5, h = 20.5 },
+        name = {
+            x = 73, y = 47.0, w = 178, h = 22,
+            font = 16,
+            fontPath = "Fonts\\FRIZQT__.TTF",
+            flags = "OUTLINE",
+            justify = "LEFT",
+        },
+        levelBadge = {
+            x = 61.0, y = 13.5,
+            size = 28,
+            font = 12,
+            fontPath = "Fonts\\FRIZQT__.TTF",
+            flags = "OUTLINE",
+        },
+        healthPercentFont = 10,
+        healthValueFont = 7,
+        healthPercentOffset = 4,
+        healthValueOffset = -5,
+    },
+
+    -- TEST43: compact party frames intentionally share the proven ToT artwork
+    -- and geometry. This gives the group frames the same visual language while
+    -- keeping them lightweight enough to stack four high. Party members use a
+    -- single health cavity in this first pass; resource bars can be added later
+    -- without changing the party-frame positioning/settings model.
+    party = {
+        width = 260,
+        height = 78,
+        frame = "tot_frame.tga",
+        textureUMax = 0.50781250,
+        textureVMax = 0.60937500,
+        widthSlices = { left = 78, right = 10, step = 18, maxPreset = 3 },
+        portrait = {
+            x = 38.0, y = 39.3,
+            size = 66,
+            slices = 44,
+            zoom = 1.08,
+            offsetX = 0.00,
+            offsetY = 0.00,
+        },
+        health = { x = 74.5, y = 26.6, w = 178.5, h = 20.5 },
+        name = {
+            x = 73, y = 47.0, w = 178, h = 22,
+            font = 16,
+            fontPath = "Fonts\\FRIZQT__.TTF",
+            flags = "OUTLINE",
+            justify = "LEFT",
+        },
+        levelBadge = {
+            x = 61.0, y = 13.5,
+            size = 28,
+            font = 12,
+            fontPath = "Fonts\\FRIZQT__.TTF",
+            flags = "OUTLINE",
+        },
+        healthPercentFont = 10,
+        healthValueFont = 7,
+        healthPercentOffset = 4,
+        healthValueOffset = -5,
+    },
+
+    raid = {
+        width = 260,
+        height = 78,
+        frame = "tot_frame.tga",
+        textureUMax = 0.50781250,
+        textureVMax = 0.60937500,
+        widthSlices = { left = 78, right = 10, step = 18, maxPreset = 3 },
         portrait = {
             x = 38.0, y = 39.3,
             size = 66,

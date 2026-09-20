@@ -1,14 +1,17 @@
 ## Interface: 11200
 ## Title: SlamFrames
-## Notes: Custom HD unit frames for OctoWoW / Vanilla 1.12-style clients.
+## Notes: Custom unit, party, raid, cast, aura, click-cast, and healing frames for OctoWoW / Vanilla 1.12-style clients.
 ## Author: Amrish + ChatGPT
-## Version: 2.5.1
-## SavedVariables: SlamFramesDB
+## Version: 3.0.0
+## SavedVariables: SlamFramesDB, SlamFramesAccountDB
+## SavedVariablesPerCharacter: SlamFramesCharacterDB
 ## OptionalDeps: HealComm
 
 Config.lua
 StatusBar.lua
 SlamFrames.lua
+RaidFrames.lua
+ClickCasting.lua
 AuraRefreshFix.lua
 Skin.lua
 CastIcons.lua

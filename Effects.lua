@@ -133,7 +133,7 @@ function SF:CreatePlayerEffects()
     p.combatGlowHalo=p.statusFrame:CreateTexture(nil,"OVERLAY")
     -- Purpose-built radial-alpha ring. The old UI-ActionButton-Border texture
     -- contains square-edge bloom, which was visible around our circular portrait.
-    p.combatGlowHalo:SetTexture(TEX..(C.combatGlowTexture or "combat_glow.tga"))
+    p.combatGlowHalo:SetTexture(((SF.GetTextureRoot and SF:GetTextureRoot()) or TEX)..(C.combatGlowTexture or "combat_glow.tga"))
     p.combatGlowHalo:SetBlendMode("ADD")
     p.combatGlowHalo:SetVertexColor(1.0,0.02,0.01)
     p.combatGlowHalo:SetAlpha(0); p.combatGlowHalo:Hide()

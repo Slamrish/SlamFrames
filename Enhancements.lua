@@ -198,6 +198,14 @@ end
 function SF:UpdateHealPredictions()
     self:UpdateHealPredictionForFrame(self.player, "player")
     self:UpdateHealPredictionForFrame(self.target, "target")
+    if self.partyFrames then
+        local i
+        for i=1,table.getn(self.partyFrames) do self:UpdateHealPredictionForFrame(self.partyFrames[i], "party"..i) end
+    end
+    if self.raidFrames then
+        local i
+        for i=1,table.getn(self.raidFrames) do self:UpdateHealPredictionForFrame(self.raidFrames[i], "raid"..i) end
+    end
 end
 
 function SF:HealPredictionUpdateForName(unitname)
@@ -213,6 +221,20 @@ function SF:HealPredictionUpdateForName(unitname)
         local targetName = UnitName("target")
         if targetName and unitname == targetName then
             self:UpdateHealPredictionForFrame(self.target, "target")
+        end
+    end
+    if self.partyFrames then
+        local i,unit,name
+        for i=1,table.getn(self.partyFrames) do
+            unit="party"..i
+            if UnitExists(unit) then name=UnitName(unit); if name and unitname==name then self:UpdateHealPredictionForFrame(self.partyFrames[i],unit) end end
+        end
+    end
+    if self.raidFrames then
+        local i,unit,name
+        for i=1,table.getn(self.raidFrames) do
+            unit="raid"..i
+            if UnitExists(unit) then name=UnitName(unit); if name and unitname==name then self:UpdateHealPredictionForFrame(self.raidFrames[i],unit) end end
         end
     end
 end
@@ -419,13 +441,15 @@ local function TintCompatButton(b, selected)
     local normal = b.GetNormalTexture and b:GetNormalTexture() or nil
     local pushed = b.GetPushedTexture and b:GetPushedTexture() or nil
     local disabled = b.GetDisabledTexture and b:GetDisabledTexture() or nil
+    local highlight = b.GetHighlightTexture and b:GetHighlightTexture() or nil
     if normal and normal.SetVertexColor then
-        if selected then normal:SetVertexColor(0.72, 0.12, 0.07) else normal:SetVertexColor(0.44, 0.07, 0.05) end
+        if selected then normal:SetVertexColor(0.82, 0.15, 0.08) else normal:SetVertexColor(0.72, 0.12, 0.07) end
     end
-    if pushed and pushed.SetVertexColor then pushed:SetVertexColor(0.72, 0.12, 0.07) end
+    if pushed and pushed.SetVertexColor then pushed:SetVertexColor(0.60, 0.08, 0.05) end
     if disabled and disabled.SetVertexColor then
-        if selected then disabled:SetVertexColor(0.72, 0.12, 0.07) else disabled:SetVertexColor(0.30, 0.05, 0.04) end
+        if selected then disabled:SetVertexColor(0.82, 0.15, 0.08) else disabled:SetVertexColor(0.62, 0.10, 0.06) end
     end
+    if highlight and highlight.SetVertexColor then highlight:SetVertexColor(1.00, 0.22, 0.10) end
     local fs = b.GetFontString and b:GetFontString() or nil
     if fs then fs:SetTextColor(1.00, 0.82, 0.00) end
 end

@@ -1,3 +1,21 @@
+SlamFrames v3.0.0
+- Promoted the tested TEST66 codebase to stable 3.0.0.
+- Added Party and Raid frames with Compact mode and 5/10/15/20/40-player previews/layouts.
+- Added 8-across, 4+4, and 2-across raid group orientations plus independent member/group spacing.
+- Added raid class-colored names, main-tank indicators, debuff glow sizing, opacity, and Light/Dark compact skins.
+- Added Party/Raid click casting and supported item use.
+- Added per-character settings profiles with migration from older shared profiles.
+- Added selectable 4K and 1080 artwork packs; 1080 assets use power-of-two dimensions for Vanilla client compatibility.
+- Added HealComm bridge diagnostics and preserved local predictive-healing fallback.
+- Added optional Blizzard red error-text suppression while keeping SlamFrames cast failure/interruption feedback.
+- Unified settings button colors and cleaned Cast Bar settings presentation.
+
+SlamFrames 2.6.0-TEST44
+- Light theme now applies the same warm gold action-bar tint to the native XP-bar decorative textures and divider marks.
+- XP fill colors remain untouched so normal/rested XP feedback is preserved.
+- Dark theme behavior is unchanged.
+- Preserves the complete TEST43 ToT-style Party Frame implementation.
+
 SlamFrames v2.5
 - Fixed cast-state contamination where bandages/channels could poison the timing of later Throw, Hearthstone, Shoot, crafting, Cooking, and other casts until /reload.
 - Isolated each new cast as a clean timing boundary while preserving legacy pushback behavior.
@@ -323,3 +341,23 @@ SlamFrames v0.7.0
 - Added crowd-control alert framework with gold icon, category label and
   remaining duration using vanilla player-buff timing APIs when available.
 - Added CC preview button in settings for testing the alert without being CC'd.
+
+SlamFrames v2.6.0-TEST57
+- Added a third raid group orientation: 2 Across. A 20-player preview becomes two rows of two groups; a 40-player preview becomes four rows of two groups.
+- Existing member, horizontal group, and group-row spacing controls apply to the new layout.
+- Added a Raid-tab Test Debuffs preview toggle for Test Frames.
+- Test Debuffs demonstrates Magic, Curse, Poison, and Disease states with type-colored borders and icons.
+- Compact raid frames reserve name space for preview debuff icons so the healing layout remains readable.
+
+SlamFrames v2.6.0-TEST58
+- Added optional class-colored names to Raid frames with 1.12-safe class-color fallbacks.
+- Added Debuff Glow Size slider (1-8) for the raid debuff preview, controlling edge thickness and outward spread.
+- Added live Main Tank frame indication using the raid roster role assignment.
+- Added Light/Dark-aware steel-blue Main Tank frame treatment with an inner rail that remains visible beneath debuff alerts.
+- Added Test Main Tanks preview toggle; Test Frames mark two representative Main Tanks.
+- Expanded the Raid settings scroll height for the new controls.
+SlamFrames v2.6.0-TEST60
+- Added per-character settings storage for the complete SlamFrames configuration.
+- Added automatic one-time migration seed from the existing account-wide SlamFramesDB.
+- Each character now keeps independent frame positions, raid/party layouts, skins, click-casting bindings, and other settings.
+

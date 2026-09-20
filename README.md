@@ -1,124 +1,51 @@
-# SlamFrames
+# SlamFrames 3.0
 
-**SlamFrames 2.5.1** is a complete custom unit-frame replacement for **OctoWoW**, built for the Vanilla 1.12-style client environment.
+SlamFrames is a custom unit-frame suite for **OctoWoW / Vanilla 1.12-style clients**. It is designed around SuperWoW/Nampower-compatible environments and is not intended for Retail or modern Classic clients.
 
-It replaces the default Player, Target, and Target-of-Target frames with configurable custom frames while adding modern conveniences such as target aura timers, predictive healing, a custom Ornate cast bar, combat/resting effects, CC alerts, special Rare/Elite/Boss portrait frames, and Light/Dark skins.
+## 3.0 highlights
 
-## Features
+- Custom Player, Target, Target-of-Target, Party, and Raid frames.
+- Raid layouts for 5/10/15/20/40 players, including 8-across, 4+4, and 2-across group arrangements.
+- Compact raid mode for healing-focused layouts, with Light/Dark variants, opacity control, class-colored names, main-tank indication, and configurable debuff glow.
+- Click casting for Party/Raid frames, including supported item use.
+- Predictive healing with HealComm bridge support plus local fallback prediction.
+- Per-character settings profiles with migration from older shared profiles.
+- 4K and 1080 artwork modes. The 1080 pack uses Vanilla-compatible power-of-two texture dimensions.
+- Light and Dark skins.
+- Custom player cast bar with icons, timer, latency region, interruption/failure feedback, channels, bandages, gathering, professions, and world interactions.
+- Optional suppression of Blizzard's redundant red error text.
+- Target aura timers and Nampower duration-refresh reconciliation.
+- Rare/Elite/Boss portrait decorations, combat glow, resting Zzz, CC alerts, test-frame mode, and a scrollable settings UI.
 
-- Custom Player, Target, and Target-of-Target frames
-- Independent movement, scale, width, and portrait zoom
-- Circular portraits and level medallions
-- Configurable health/resource/name/level text
-- Independent horizontal name positioning for Player, Friendly targets, normal Enemy targets, and Rare/Elite/Boss targets
-- Target buffs and debuffs with multi-row wrapping
-- Numeric target aura timers with adjustable size
-- Aura-duration refresh reconciliation for refreshed and stacked effects
-- Predictive incoming-heal display with HealComm support and local fallback behavior
-- Custom **Ornate** player cast bar with spell/item icons, timer, latency display, and flavor text
-- Legacy Vanilla/Turtle-style cast pushback handling
-- Correct interrupted/failed cast arbitration and cast-state rendering
-- Support for channels, bandages, gathering, tradeskills, and world-object interactions
-- Special two-layer Rare/Elite and Boss portrait decorations with clean portrait masking
-- Automatic target classification for special portrait frames
-- Optional mirrored Rare/Elite or Boss decoration on the Player frame
-- Light and Dark special-frame artwork matched to the active SlamFrames skin
-- Combat portrait glow
-- Resting / Inn Zzz effect
-- Crowd-control alerts with remaining time
-- Optional click-to-self-target
-- Light and Dark skins
-- Player-portrait minimap launcher
-- Built-in Test Frames mode
-- Scrollable in-game settings
+## Fresh installation
 
-## Compatibility
-
-SlamFrames is developed specifically for:
-
-- OctoWoW
-- Vanilla / WoW 1.12-style APIs
-- SuperWoW-compatible environments
-- Nampower-enhanced APIs when available
-
-It is **not** intended for Retail WoW or modern Classic clients.
-
-## Installation
-
-1. Download the latest release ZIP.
-2. Close World of Warcraft.
-3. Extract the `SlamFrames` folder into:
-
-   `Interface\\AddOns\\`
-
-4. The final path should be:
-
-   `Interface\\AddOns\\SlamFrames\\SlamFrames.toc`
-
+1. Close World of Warcraft.
+2. Extract the release ZIP.
+3. Copy the included `SlamFrames` folder to `Interface\AddOns\`.
+4. Confirm the final path is `Interface\AddOns\SlamFrames\SlamFrames.toc`.
 5. Launch OctoWoW.
-6. Open settings with the minimap button or:
+6. Open the settings with `/sf settings`.
 
-   `/sf settings`
+Do **not** install the repository ZIP from GitHub's automatic Source Code download as your normal addon package. Use the packaged release ZIP.
 
 ## Updating
 
-Replace the existing `SlamFrames` addon folder with the new release.
+Delete or replace the existing `Interface\AddOns\SlamFrames` folder with the new release folder. Normal updates preserve SavedVariables.
 
-Existing SavedVariables are preserved during normal updates. SlamFrames 2.5.1 does not require an existing profile reset.
+## Useful diagnostics
 
-## SlamFrames 2.0 Highlights
+- `/sf settings` — open settings.
+- `/sf healpredict status` — report HealComm/prediction bridge status.
+- `/sf healpredict test 2000` — visual incoming-heal test.
 
-### Special Rare / Elite / Boss Frames
+## Compatibility
 
-Rare/Elite and Boss targets can now receive dedicated dragon portrait decorations. The artwork uses a two-layer system so the portrait remains cleanly masked inside the circular opening. The optional Player version is automatically mirrored so the dragon faces inward toward the Player bars.
+- OctoWoW
+- WoW 1.12-style API (`## Interface: 11200`)
+- SuperWoW-compatible environments
+- Nampower enhancements when available
+- HealComm when available
 
-The Special Portrait Frames settings include separate horizontal name-position sliders for:
+## Release
 
-- Player
-- Friendly targets
-- Normal Enemy targets
-- Rare / Elite / Boss targets
-
-Each slider ranges from `-150` to `+150` in 5-pixel steps and is saved independently.
-
-### Predictive Healing
-
-SlamFrames can display incoming healing directly on supported unit frames. HealComm is supported when available, with local prediction behavior used where appropriate.
-
-### Ornate Cast Bar
-
-The new Ornate cast bar includes improved cast timing, latency visualization, spell/item icons, profession/world-interaction flavor text, channel handling, legacy pushback support, and safer interrupt/failure arbitration.
-
-### Aura Refresh Handling
-
-Aura timing now reconciles server-side duration refreshes exposed by Nampower, allowing refreshed effects to reset their timers instead of becoming icon-only after the original duration expires.
-
-## Useful Commands
-
-```text
-/sf settings
-/sf lock
-/sf unlock
-/sf skin dark
-/sf skin light
-/sf auratimer on
-/sf auratimer off
-/sf auratimerscale 1.00
-/sf aurarowgap 1
-/sf specialtarget on
-/sf specialtarget off
-/sf specialplayer on
-/sf specialplayer off
-/sf specialstyle rare
-/sf specialstyle boss
-```
-
-Most configuration is available directly through the in-game settings panel.
-
-## Current Stable Release
-
-**SlamFrames 2.5**
-
-## Credits
-
-SlamFrames was built for the OctoWoW community. Development also benefited from studying established Vanilla UI projects and compatibility layers including pfUI / Shagu-style implementations, SuperWoW, Nampower, HealComm-compatible healing communication, and DragonflightUI-Reforged's Vanilla/Turtle cast-timing behavior.
+Current stable release: **3.0.0**

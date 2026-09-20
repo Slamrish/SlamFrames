@@ -486,6 +486,14 @@ end
 local function MakeButton(parent,text,w,h)
     local b=CreateFrame("Button",nil,parent,"UIPanelButtonTemplate")
     b:SetWidth(w or 90); b:SetHeight(h or 22); b:SetText(text or "")
+    local normal=b.GetNormalTexture and b:GetNormalTexture() or nil
+    local pushed=b.GetPushedTexture and b:GetPushedTexture() or nil
+    local disabled=b.GetDisabledTexture and b:GetDisabledTexture() or nil
+    local highlight=b.GetHighlightTexture and b:GetHighlightTexture() or nil
+    if normal and normal.SetVertexColor then normal:SetVertexColor(0.72,0.12,0.07) end
+    if pushed and pushed.SetVertexColor then pushed:SetVertexColor(0.60,0.08,0.05) end
+    if disabled and disabled.SetVertexColor then disabled:SetVertexColor(0.62,0.10,0.06) end
+    if highlight and highlight.SetVertexColor then highlight:SetVertexColor(1.00,0.22,0.10) end
     local fs=b.GetFontString and b:GetFontString() or nil
     if fs then fs:SetTextColor(1.00,0.82,0.00) end
     return b
