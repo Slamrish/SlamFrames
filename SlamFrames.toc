@@ -1,8 +1,8 @@
 ## Interface: 11200
 ## Title: SlamFrames
-## Notes: SlamFrames 2.5 - stable OctoWoW unit frames with predictive healing, corrected cast-state isolation, aura timer layer locking, dynamic UI layering, level colors, and improved profession flavor text.
+## Notes: Custom HD unit frames for OctoWoW / Vanilla 1.12-style clients.
 ## Author: Amrish + ChatGPT
-## Version: 2.5
+## Version: 2.5.1
 ## SavedVariables: SlamFramesDB
 ## OptionalDeps: HealComm
 
