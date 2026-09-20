@@ -1,4 +1,4 @@
--- SlamFrames v1.0.0
+-- SlamFrames v2.5.1
 -- OctoWoW / 1.12-era compatible unit frames.
 -- Uses old event globals (event, arg1, this) intentionally.
 
@@ -1782,7 +1782,7 @@ function SF:Reset(key)
             if key=="tot" then SlamFramesDB.portraitZooms[key]=1.08 else SlamFramesDB.portraitZooms[key]=1.00 end
         end
         local f=FrameForKey(key); if f then self:LayoutFrame(f,key,DEFAULT_SCALES[key]); ApplyAnchor(f,key) end
-        self:UpdateMoveLabels(); if self.RefreshSettings then self:RefreshSettings() end; Print(key.." reset to the SlamFrames 1.0 default profile."); return
+        self:UpdateMoveLabels(); if self.RefreshSettings then self:RefreshSettings() end; Print(key.." reset to the SlamFrames default profile."); return
     end
     SlamFramesDB.anchors.player=CopyAnchor(DEFAULT_ANCHORS.player); SlamFramesDB.anchors.target=CopyAnchor(DEFAULT_ANCHORS.target); SlamFramesDB.anchors.tot=CopyAnchor(DEFAULT_ANCHORS.tot)
     SlamFramesDB.scales.player=DEFAULT_SCALES.player; SlamFramesDB.scales.target=DEFAULT_SCALES.target; SlamFramesDB.scales.tot=DEFAULT_SCALES.tot
@@ -1832,7 +1832,7 @@ function SF:Reset(key)
     if self.UpdatePlayerEffects then self:UpdatePlayerEffects(true) end
     if self.HideBlizzardFrames then self:HideBlizzardFrames() end
     self:RefreshAll()
-    self:UpdateMoveLabels(); if self.RefreshSettings then self:RefreshSettings() end; Print("SlamFrames reset to the 1.0 default profile.")
+    self:UpdateMoveLabels(); if self.RefreshSettings then self:RefreshSettings() end; Print("SlamFrames reset to the default profile.")
 end
 
 function SF:CreateFrames()

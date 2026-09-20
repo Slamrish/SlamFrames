@@ -1,6 +1,6 @@
 # SlamFrames
 
-**SlamFrames 2.5** is a complete custom unit-frame replacement for **OctoWoW**, built for the Vanilla 1.12-style client environment.
+**SlamFrames 2.5.1** is a complete custom unit-frame replacement for **OctoWoW**, built for the Vanilla 1.12-style client environment.
 
 It replaces the default Player, Target, and Target-of-Target frames with configurable custom frames while adding modern conveniences such as target aura timers, predictive healing, a custom Ornate cast bar, combat/resting effects, CC alerts, special Rare/Elite/Boss portrait frames, and Light/Dark skins.
 
@@ -64,7 +64,7 @@ It is **not** intended for Retail WoW or modern Classic clients.
 
 Replace the existing `SlamFrames` addon folder with the new release.
 
-Existing SavedVariables are preserved during normal updates. SlamFrames 2.0 adds new settings without requiring an existing profile reset.
+Existing SavedVariables are preserved during normal updates. SlamFrames 2.5.1 does not require an existing profile reset.
 
 ## SlamFrames 2.0 Highlights
 

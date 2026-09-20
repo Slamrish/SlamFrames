@@ -1,8 +1,8 @@
--- SlamFrames v1.0.0
+-- SlamFrames v2.5.1
 -- Stable visual geometry + true layout scaling + settings/status pass.
 
 SlamFrames_Config = {
-    version = "1.0.0",
+    version = "2.5.1",
     texturePath = "Interface\\AddOns\\SlamFrames\\Textures\\",
     levelBadgeTexture = "level_badge.tga",
     combatGlowTexture = "combat_glow.tga",
