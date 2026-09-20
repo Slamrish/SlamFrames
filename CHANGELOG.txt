@@ -1,0 +1,325 @@
+SlamFrames v2.5
+- Fixed cast-state contamination where bandages/channels could poison the timing of later Throw, Hearthstone, Shoot, crafting, Cooking, and other casts until /reload.
+- Isolated each new cast as a clean timing boundary while preserving legacy pushback behavior.
+- Improved special-action timing for Shoot, Throw, gathering, Cooking, crafting, bandages, Hearthstone, and related Vanilla-era cast paths.
+- Added dynamic frame layering: SlamFrames stays above world/nameplate frames during gameplay while dropping below Blizzard panels such as professions, Character, Merchant, and Trainer windows.
+- Corrected enemy level difficulty coloring using the player-level-dependent Vanilla gray/no-XP threshold instead of a fixed or quest-style cutoff.
+- Added target aura timer layer locking so numeric buff/debuff timers remain above their aura icons when frame strata/levels are reconciled.
+- Simplified Ornate cast-bar Mining flavor text to display “Mining” instead of “Casting Mining on [Target Name]”.
+- Preserved the 2.0 predictive healing, special Rare/Elite/Boss portrait frames, aura refresh reconciliation, name-position controls, Light/Dark themes, and Ornate cast bar.
+
+SlamFrames v2.0
+- Added special two-layer Rare/Elite and Boss portrait decorations with clean circular portrait masking.
+- Added automatic target classification for Rare, Elite, Rare-Elite and Boss special frames.
+- Added optional Player special portrait decoration with Rare/Elite or Boss style selection.
+- Player special-frame artwork is automatically mirrored so the dragon faces inward toward the Player bars.
+- Added Light and Dark special portrait assets matched to SlamFrames' gold and graphite themes.
+- Added independent horizontal name-position sliders for Player, Friendly targets, normal Enemy targets, and Rare/Elite/Boss targets.
+- Expanded all name-position sliders to -150 through +150 in 5-pixel steps.
+- Added predictive healing support with HealComm integration and local prediction fallback behavior.
+- Added the Ornate cast-bar style with configurable flavor text, spell/item icons, timer, latency display and improved alignment.
+- Added canonical cast-progress rendering shared across supported cast states.
+- Added legacy Vanilla/Turtle-style cast pushback handling based on SPELLCAST_DELAYED timing.
+- Improved STOP/interrupt/failure arbitration so normal cast completion does not falsely display INTERRUPTED.
+- Improved channel, bandage, profession, gathering and world-object interaction handling.
+- Added server-side aura-duration refresh reconciliation using Nampower duration-refresh events.
+- Refreshed or re-stacked timed auras can now reset their SlamFrames timer correctly instead of becoming icon-only after the original timer expires.
+- Theme changes continue to use the stable reload-prompt path for reliable texture swapping.
+- Numeric aura timers remain the supported aura countdown display; the experimental radial sweep remains retired.
+
+SlamFrames v1.0.0
+- First stable release baseline.
+- Promoted the author's current tested SavedVariables profile to the fresh-install and Reset defaults.
+- Default Dark skin, 0.60 frame scales, ~90% bar lengths, tuned portrait zoom, text sizes, aura size/spacing/timer, effects, and cast-bar layout.
+- Existing users keep their current SavedVariables; the new defaults do not overwrite established profiles.
+- Experimental aura Sweep remains retired; numeric aura Timer is the supported 1.0 display.
+- Preserved parked cast-bar Style 2 assets for possible future development without exposing the unfinished style in the 1.0 UI.
+
+SlamFrames v0.19.27
+- Removed the experimental Target Aura Sweep feature and its settings/command for now.
+- Target aura timing is now numeric Timer-only, avoiding the broken radial cooldown path.
+- Added a Timer size slider under Layout > Target aura icons.
+- Timer size ranges from 50% to 200% and updates live.
+- Added /sf auratimerscale (or /sf auratimersize) for direct numeric adjustment.
+- Old saved Sweep settings are forced off for compatibility.
+
+SlamFrames v0.19.26
+- Fixed Target Aura Sweep still appearing as a second numeric timer.
+- Sweep now uses only the native Blizzard radial cooldown model.
+- The sweep cooldown frame opts out of pfUI/cooldown-count text injection via noCooldownCount.
+- Timer is now a separate SlamFrames centered countdown and no longer depends on the cooldown model.
+- Increased the Timer text size to match the larger centered countdown appearance requested.
+- Sweep and Timer can still be enabled independently or together.
+
+SlamFrames v0.19.25
+- Fixed Target Aura Timer/Sweep behavior: Timer now uses the same native/pfUI cooldown countdown that was previously appearing under Sweep.
+- Sweep now controls only the radial cooldown animation; Timer controls only the centered countdown number.
+- Sweep and Timer can still be enabled independently or together.
+- Removed the unwanted bottom custom timer text when the native/pfUI timer is available.
+
+SlamFrames v0.19.24
+- Replaced the unavailable ClassicAPI target-aura timing path with Nampower/SuperWoW-aware tracking.
+- Nampower AURA_CAST_ON_SELF/OTHER durationMs now seeds exact GUID + spell timers for live buffs/debuffs.
+- Nampower BUFF/DEBUFF ADDED/REMOVED events maintain live per-GUID aura timing state and use GetSpellDuration as a generic fallback.
+- SuperWoW UNIT_CASTEVENT provides a conservative pending-cast fallback that is only promoted after the aura is actually visible on the target.
+- Live target aura rendering now joins UnitBuff/UnitDebuff spell IDs to the exact-GUID timing cache, following the same cache principle used successfully by SlamPlates.
+- /sf auradiag now reports SuperWoW/Nampower availability, custom-event counts, target GUID, first aura duration/remaining time, and timing source.
+- Existing auras that were already active before SlamFrames observed an application may remain icon-only until refreshed/reapplied; newly observed applications can be timed exactly.
+
+SlamFrames v0.19.23
+- Fixed target aura sweep/timer toggles working only on synthetic Test Frames.
+- Live target auras now prefer OctoWoW/ClassicAPI C_UnitAuras timing data, including duration and expirationTime.
+- Added robust fallback parsing for older compatibility layers with different UnitBuff/UnitDebuff return layouts.
+- Timer text now uses real live remaining time when ClassicAPI has observed the aura application.
+- Added /sf auradiag to report whether live target aura timing data is available.
+
+SlamFrames v0.19.22
+- Reverted the broken v0.19.21 aura-timer code back to the stable v0.19.20 base before reapplying the feature.
+- Fixed the addon-breaking timer-font issue by creating timer text through SlamFrames' proven MakeText helper.
+- Added independent Target Aura Sweep and Timer toggles. Both default OFF, preserving icon-only mode until enabled.
+- Sweep uses the native cooldown model; Timer shows compact remaining time. Either can be enabled alone or together.
+- Existing aura wrapping, row-spacing slider, two-row Test Frames data, cast fixes, and Light/Dark skins are preserved.
+
+SlamFrames v0.19.20
+- Fixed unnamed timed world-object interactions such as opening barrels/chests showing a blank cast description.
+- Added a short-lived world-tooltip cache so otherwise unnamed interactions can display labels such as "Opening Barrel".
+- Generic opening/interacting casts now resolve to a stock Vanilla opening/container icon instead of the question mark.
+- Interrupted casts now always use a dedicated Vanilla interrupt icon; failed casts retain the dedicated SlamFrames failure icon, so neither state can degrade to ?.
+- Existing bandage timing/icon locking, skins, aura wrapping, row-spacing controls, and settings scrolling are unchanged.
+
+SlamFrames v0.19.20
+- Settings tabs now use a clipped scrollable viewport so long option pages can never overlap the persistent footer buttons.
+- Added mouse-wheel scrolling and a slim gold vertical scrollbar when a tab is taller than the available settings area.
+- Layout now scrolls cleanly to the lower Target Aura / Relative Placement options while Reset All, Test Frames and Close remain fixed and always accessible.
+- Shorter tabs stay visually unchanged and do not show a scrollbar unless needed.
+
+SlamFrames v0.19.18
+- Tightened wrapped target-aura rows by spacing from the visible aura border instead of the texture's transparent padding.
+- Added Layout > Target aura icons > Row spacing slider (0.0-12.0, default 2.0) for live tuning of wrapped-row distance.
+- Test Frames now supplies up to 16 test buffs/debuffs so the target aura display reliably shows at least two rows for layout testing.
+- Added /sf aurarowgap 0-12 (alias /sf aurarowspacing).
+
+SlamFrames v0.19.18
+- Fixed item/channel cast icons changing to the question-mark icon a few seconds after the cast begins.
+- Once SlamFrames has a valid icon for the current cast, that icon is locked for that cast and later timing reconciliation cannot downgrade it.
+- If a cast initially has no valid icon, SlamFrames continues resolving until it finds one, then locks it.
+- Cast timing, skins, aura wrapping, and all other v0.19.16 behavior are unchanged.
+
+SlamFrames v0.19.16
+- Restored the subtle warm/gold coloration on the native action-bar artwork in Light mode.
+- Kept individual action-button gold/yellow outlines disabled.
+- Kept the XP-area and bottom action-bar accent rails disabled.
+- Kept the minimap's subtle Light tint while leaving the minimap/addon-button outline rings disabled.
+- Dark skin and all unit-frame/cast/aura behavior are unchanged.
+
+SlamFrames v0.19.15
+- Light skin cleanup: removed the remaining yellow/gold accent from the XP bar area.
+- Removed the thin gold rail that ran along the bottom of the action bar.
+- Removed the added outline ring around the minimap while preserving the subtle warm tint on the native minimap border.
+- Removed the added outline ring around the SlamFrames minimap launcher and other minimap buttons.
+- Dark skin and all frame/cast/aura functionality are unchanged.
+
+SlamFrames v0.19.14
+- Dark skin recolored from brown/bronze to neutral graphite / grey-black metal to better match the existing action-bar and minimap aesthetic.
+- Light skin no longer adds bright-gold frames around individual action-bar icons.
+- Light skin keeps the broader action-bar/minimap color treatment while leaving button icon borders alone.
+
+SlamFrames v0.19.13
+- Added switchable Light and Dark UI skins.
+- Dark skin recolors SlamFrames ornamental frame artwork from bright gold to muted bronze/brown to match the user's existing action-bar/minimap aesthetic.
+- Light skin keeps the original bright-gold SlamFrames artwork and adds gold accent overlays to supported Blizzard/Octo action buttons plus a matching minimap ring/button accents.
+- Skin changes apply live from General > Display or with /sf skin light|dark.
+- External UI accents are best-effort and never replace action icons or gameplay data.
+- Preserved the cast timing/icon fixes and aura wrapping from v0.19.12.
+
+SlamFrames v0.19.12
+- Added a cast-icon resolver so item/action casts no longer have to show an empty or question-mark spell icon.
+- Captures the actual icon from recent action-bar, bag-item, equipped-item, spellbook, tradeskill, and UseItemByName actions; this specifically covers bandages regardless of which bandage is used.
+- Cast icons now resolve in order from engine texture, spell ID, spellbook, recent initiating action/item, learned session association, then a built-in Vanilla fallback database.
+- Added built-in fallback icons for First Aid/bandages, Hearthstone, Mining/Smelting, Herbalism, Skinning, Fishing, Cooking, Alchemy, Blacksmithing, Engineering, Leatherworking, Tailoring, Enchanting, Lockpicking/Opening, resurrection/revive, and summoning categories.
+- Added CastIcons.lua as a dedicated maintainable icon database/resolver module.
+
+SlamFrames v0.19.11
+- Fixed the Vanilla native CastingBarFrame timing reader: ordinary casts store maxValue as an absolute end timestamp, not a duration. This was the source of ~600-second/uptime values and bars that did not animate correctly.
+- Fixed legacy SPELLCAST_CHANNEL_START argument order (arg1=duration ms, arg2=spell name). This is especially important for bandages and other channeled item actions.
+- Active channels now ignore legacy SPELLCAST_STOP and wait for SPELLCAST_CHANNEL_STOP, preventing bandage bars from being cleared at channel start.
+- SPELLCAST_CHANNEL_UPDATE now uses arg1 as remaining milliseconds when no C_Spell/native timing is available.
+- Active casts now continuously reconcile against C_Spell first and the native Blizzard cast-frame timestamps second.
+
+SlamFrames v0.19.10
+- Fixed player cast timing for bandages and other item/action casts that can use a different OctoWoW event path than normal spellbook casts.
+- Cast timing now resolves in order from C_Spell exact timing, Blizzard's hidden native CastingBarFrame state, then a normalized legacy SPELLCAST duration.
+- Legacy duration fallback now accepts both milliseconds (8000) and seconds (8), preventing long item casts from becoming near-instant bars.
+- Removed the old permanent UNIT_SPELLCAST-vs-SPELLCAST lockout so legacy-only item casts continue to work after normal spell casts.
+- Added short post-start timing reconciliation so item/gathering/bandage casts can correct themselves to the engine's canonical duration on the next frame.
+- Delayed casts/channels now resync exact timing where possible instead of assuming every legacy delay value is milliseconds.
+
+SlamFrames v0.19.9
+- Rolled back the experimental v0.20 target-attached cast-bar branch to the stable v0.19.8 codebase.
+- Removed the Style 2 cast-bar selector and forced the working standard cast-bar style.
+- Style 2 source/texture assets are preserved in the addon for possible later development but are not selectable or used at runtime.
+- Increased target aura capacity from 8 to 16.
+- Target buffs/debuffs now wrap to a new row before reaching the level medallion/portrait area.
+- Aura wrapping respects target bar-length presets and aura-size scaling.
+
+SlamFrames v0.19.8
+- Adjusted the Style 2 inner cast-bar track size to match the annotated box reference more closely.
+- The lower cast bar is now inset farther from both the left and right ornaments so the bar body sits inside the decorative cavity instead of infringing on the frame art.
+- Style 2 only; Style 1 remains unchanged.
+
+SlamFrames v0.19.7
+- Reworked the Style 2 inner cast-track width to match the longer cavity indicated by the latest annotated screenshot.
+- Style 2 lower cast bar now spans much farther to the right again while still remaining inside the ornamented shell.
+- Slightly widened the left side as well for a better match to the boxed reference.
+- Style 2 only; Style 1 remains unchanged.
+
+SlamFrames v0.19.6
+- Reverted the Style 2 body-length reduction; the outer ornamental cast-bar design stays full size again.
+- Adjusted only the Style 2 inner cast-track geometry so the lower cast bar sits inside the intended decorative cavity instead of running into the right-side design.
+- Style 2 only; Style 1 remains unchanged.
+
+SlamFrames v0.19.5
+- Corrected the Style 2 cast-bar sizing issue at the frame/body level rather than changing the progress-fill endpoints.
+- Style 2's entire horizontal cast-bar body is now 12% shorter at every width-slider setting.
+- The ornamental left/right caps keep their authored size while only the straight middle section is reduced.
+- Restored the v0.19.2 Style 2 fill geometry; Style 1 remains unchanged.
+
+SlamFrames v0.19.2
+- Style 2 cast name nudged slightly left.
+- Style 2 timer pulled farther left to clear the right ornament.
+- Style 2 usable cast/latency track ends earlier so the bar no longer runs into the arrowhead.
+- Added a stronger red/black Style 2 latency texture plus a bright leading-edge marker for visibility.
+
+- Style 2 cast bar: moved the spell name farther right to clear the left-side ornamentation.
+- Style 2 cast bar: moved the timer slightly left to clear the ornate right arrowhead.
+- Style 1 text placement is unchanged.
+
+SlamFrames v0.19.0
+- Added two selectable cast-bar skins.
+- Style 1 preserves the clean v0.18 SlamFrames cast bar.
+- Style 2 adds the heavier concept-art ornamentation: spear/diamond left cap, layered arrowhead end cap, brighter gold rails, and an ornamented icon frame.
+- Both styles preserve the amber/green/red cast-state colors, width slider, scale, latency region and movement.
+- Added /sf castbar style 1|2.
+
+SlamFrames v0.18.0
+- Added the first complete SlamFrames player cast bar using the approved gold/beveled visual language.
+- New cast-bar assets: three-slice gold frame, neutral glossy tintable fill, diagonal latency stripe overlay, and dedicated red-X failure icon.
+- Normal casts use amber/gold fill; channels use green; interrupted/failed casts flash red before fading.
+- Added framed spell icon, spell name, elapsed/total time, progress spark, and optional GetNetStats latency region.
+- Cast bar supports OctoWoW/ClassicAPI UNIT_SPELLCAST_* + C_Spell data and includes legacy SPELLCAST_* fallback handling.
+- Added independent Cast Bar scale (0.50-1.60) and width (260-540) controls. Width uses three-slice artwork so beveled endcaps remain undistorted.
+- Added Move Cast Bar and Reset Position. Reset places it beneath the Player frame; dragged positions are saved independently.
+- Added Cast Bar settings tab with enable, Hide Blizzard Bar, Spell Icon, Timer, Latency Zone, layout controls, and preview states.
+- Added /sf castbar commands for enable, movement, reset, scale, width, previews, latency, and icon toggles.
+- Pure instant spells intentionally do not fabricate a cast window; real short timed casts are displayed normally.
+
+SlamFrames v0.17.0
+- Added optional Player-frame self targeting, enabled by default.
+- Left-click the Player frame while frames are locked to target yourself and display yourself in the Target frame.
+- When self targeting is enabled and your current target is yourself, Target-of-Target is hidden to avoid a redundant self -> self frame.
+- Added General > Interaction toggle: Click Player = Self.
+- Added /sf selftarget on|off (alias /sf clickself).
+- Right-click unit menus and unlocked drag behavior are unchanged.
+
+SlamFrames v0.16.0
+- Replaced the square-edged combat outer halo texture with a purpose-built circular radial-alpha texture sized to the portrait.
+- Combat Glow Strength still controls brightness and spread, but the bloom now follows the circular portrait silhouette.
+- Added an independent Target-of-Target health text mode.
+- General > Display now has a separate ToT Health row with Percent and Amount choices.
+- Added /sf tothealth percent | amount.
+- Existing Player/Target health display mode remains unchanged and independent.
+
+SlamFrames v0.15.0
+- Reworked Combat Glow Strength so it is visibly stronger: a tight red inner ring is now paired with a broader additive outer halo.
+- Glow Strength now affects both opacity and halo spread, so the slider continues to change the effect after the inner ring reaches maximum alpha.
+- Expanded the combat-strength range to 50%-200%. Existing saved values are preserved.
+- Target buff/debuff icons now use the native WoW cooldown sweep when duration/time-left data is exposed by OctoWoW/SuperWoW.
+- Added native mouseover tooltips for target buffs and debuffs.
+- Aura parsing supports both stock Vanilla texture-first returns and extended 1.12/SuperWoW name/icon/duration returns.
+- Test mode now includes cooldown sweeps so the aura treatment can be inspected without waiting for a timed target buff.
+
+SlamFrames v0.14.0
+- Added an adjustable Combat Glow Intensity slider under Effects > Combat notification.
+- Slider range is 50%-150% in 5% steps; fresh installs/default reset use 115% for a slightly brighter combat ring than v0.13.
+- Combat glow brightness now scales the existing pulse without changing portrait-ring size or positioning.
+- The Combat Glow ON/OFF toggle remains independent of intensity.
+- Added /sf combatglowstrength 0.50-1.50 (also accepts /sf combatglow <number>).
+- Existing v0.13 settings, frame positions, portrait zooms, widths, text, CC position, and minimap placement are preserved.
+
+SlamFrames v0.13.0
+- Rebuilt the minimap launcher with the classic SlamPlates Advanced / Blizzard minimap-button shell (31x31 button, 20x20 center image, MiniMap-TrackingBorder, native highlight).
+- SlamFrames center icon is now the live player portrait; outer minimap-button appearance matches the SlamPlates Advanced aesthetic.
+- Raised level medallions above the status-effect layer so resting/CC/combat glows cannot shine through the level display.
+- Added optional pulsing red combat portrait glow. Combat glow can be disabled independently in Effects or with /sf combatglow on|off.
+- Preserved portrait zoom, CC movement/reset, ToT relative reset, bar length presets, and existing layout settings.
+
+SlamFrames v0.12.0
+- Independent Player / Target / ToT portrait zoom sliders (1.00-1.50).
+- Movable CC notification with saved offsets and Reset CC Position.
+- Reset ToT Under Target reattaches ToT beneath the target frame.
+- Refreshed gold SlamFrames minimap medallion with health-bar accent and hover glow.
+- Preserves v0.11 frame geometry, widths, text controls, and effects.
+
+SlamFrames v0.11.0
+- Added four Target-of-Target bar-length presets (~100/90/80/70%) using the same three-slice technique as Player/Target.
+- Rebuilt the settings window into SlamPlates-inspired tabs and clearly separated sections: Display, Interaction, Minimap Launcher, Frame Scale, Bar Length, Text Size, Target Aura Icons, Resting/Inn, Crowd Control, and Compatibility.
+- Added Target-of-Target to the Bar Length section and /sf width tot 0-3.
+- Reworked the minimap launcher to match the Slam addon workflow: compact gold SF medallion, tooltip help, left-click settings, right-click lock/unlock, and drag-to-reposition around the minimap.
+- Minimap icon position is now saved. Added /sf minimap on | off | reset and corresponding settings controls.
+- Kept all v0.10 frame geometry, portrait crop, enemy difficulty level colors, skull indicator, independent text sizing, and aura sizing unchanged.
+
+SlamFrames v0.10.0
+- Enemy-only level danger display: hostile Target/ToT level numbers now use WoW difficulty colors while player/friendly badges remain gold.
+- Added skull indicator for unknown/boss levels and enemies 10+ levels above the player. Uses the standard WoW UI-TargetingFrame-Skull texture.
+- Portraits zoomed out one final tiny amount: Player 1.14, Target 1.12, ToT 1.08.
+- Added four Player and Target bar-length presets (~100/90/80/70%).
+- Added a three-slice frame-art renderer so shortening bars does not distort portrait rings or beveled endcaps; no separate artwork variants are required.
+- Health/resource bars, names, level badge, target portrait, auras, and frame hitbox all relayout with the selected bar length.
+- Added settings controls for Player Bar Length and Target Bar Length.
+- Added /sf width player|target 0-3; percentage values such as /sf width target 80 are also accepted.
+- Reset restores full bar length.
+
+SlamFrames v0.9.0
+- Fixed the v0.8 regression that could leave health/resource fills invisible after frame-layer changes. Health/power child frames are now explicitly kept above the opaque frame artwork.
+- Replaced the single global Text Scale control with independent Name, Health, Resource, and Level text scales.
+- Name text defaults to 1.30; health/resource/level text default to 1.00.
+- Health text is anchored directly to the health bar; resource text is anchored directly to the resource bar, so changing font size no longer shifts either off center.
+- Existing v0.8 Text Scale is migrated to Name text only; health/resource/level return to stable 1.00 sizing.
+- Kept Aura Size as an independent control.
+- Frame layering now uses compact safe frame-level bands and explicitly levels nested bar frames for better 1.12/OctoWoW behavior.
+- Removed automatic SetToplevel raising so overlapping SlamFrames remain a coherent visual stack.
+- Added slash commands: /sf nametext, /sf healthtextscale, /sf powertextscale, /sf leveltextscale.
+
+SlamFrames v0.8.0
+- Portrait zoom reduced a tiny amount for player, target, and ToT.
+- Resting state now shows a high-layer pulsing gold ring plus three Z/z/z marks inside the player portrait.
+- Player/Target/ToT rendering is now grouped into cohesive frame-level stacks; clicking/dragging a frame raises the entire frame together so overlapping unit frames no longer interleave their parts.
+- Unit frames remain mouse-enabled while locked; right-click opens the normal Blizzard unit context menu.
+- Global Text Scale control added; unit-frame names, level text, health/power text, move labels, CC text, and resting Zzz scale with frame size and the user multiplier.
+- Global Aura Size control added; target aura icons can be enlarged/reduced independently.
+- Aura placement shifted left to match the requested health-bar start line, with visible-edge spacing kept at roughly 1px at every aura size.
+- New slash commands: /sf textscale <0.60-2.00> and /sf aurascale <0.60-2.00>.
+
+SlamFrames v0.7.0
+
+- Replaced inherited Frame:SetScale scaling with true layout scaling. Frame art,
+  portrait slices, bars, text, level badge and target auras now all recalculate
+  from one scale value, avoiding the old-client font/anchor drift seen when
+  resizing.
+- Fresh/reset Player, Target and Target-of-Target scale is now 0.60.
+- Target aura row now anchors to the actual resource/health bar start rather
+  than the outer frame. The transparent border padding is compensated so the
+  visible gold edge lines up with the bar.
+- Aura gold borders are visually tightened to about a 1px gap.
+- Target/player portrait crop is zoomed out slightly from v0.6 while keeping
+  the same center point.
+- Added health text modes: Percent, Amount, Both, Off. Default is Percent.
+- Power text can be independently toggled; current/max remains the default.
+- Added SlamFrames minimap launcher. Left-click opens settings; right-click
+  locks/unlocks frames.
+- Added in-game settings panel for health text, power text, auras, three frame
+  scales, locking, smooth bars, resting effects, CC alerts, test mode and reset.
+- Added resting feedback: pulsing portrait glow + Zzz overlay.
+- Added crowd-control alert framework with gold icon, category label and
+  remaining duration using vanilla player-buff timing APIs when available.
+- Added CC preview button in settings for testing the alert without being CC'd.
