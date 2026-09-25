@@ -1,4 +1,4 @@
--- SlamFrames v3.0.0
+-- SlamFrames v3.1.0
 -- OctoWoW / 1.12-era compatible unit frames.
 -- Uses old event globals (event, arg1, this) intentionally.
 
@@ -27,14 +27,15 @@ local DEFAULTS = {
     skin = "dark",
     artResolution = "4k", -- 4k | 1080
 
-    -- TEST43 party-frame defaults. The group uses one shared visual profile
+    -- Party-frame defaults. The group uses one shared visual profile
     -- so all four members stay consistent while still being movable as a unit.
     showPartyFrames = true,
     partyHideInRaid = true,
+    showPartyPower = true,
     partySpacing = 8,
     partyNameOffset = 0,
 
-    -- TEST51 raid-frame defaults. Raid frames intentionally inherit the compact
+    -- Raid-frame defaults. Raid frames intentionally inherit the compact
     -- Party/ToT visual language and add an 8-group x 5-member layout.
     showRaidFrames = true,
     raidSpacing = 4,
@@ -120,7 +121,7 @@ local function CopyAnchor(src)
     return { point=src.point, relativePoint=src.relativePoint, x=src.x, y=src.y }
 end
 
--- TEST60: settings are now stored per character.  Keep the old account-wide
+-- Settings are stored per character.  Keep the old account-wide
 -- SlamFramesDB declared for one-way migration compatibility, but make the
 -- character SavedVariables table the active database used by the addon.
 -- The first character loaded after upgrading snapshots the old shared profile
@@ -233,7 +234,7 @@ end
 local function ActivateCharacterDB()
     if type(SlamFramesAccountDB) ~= "table" then SlamFramesAccountDB = {} end
 
-    -- Capture the pre-TEST60 account profile exactly once.  This prevents a
+    -- Capture the older account-wide profile exactly once.  This prevents a
     -- later character from inheriting edits made on whichever character was
     -- most recently logged out after the migration.
     if type(SlamFramesAccountDB.characterSeed) ~= "table" then
@@ -294,6 +295,7 @@ local function DBInit()
     end
     if SlamFramesDB.showPartyFrames == nil then SlamFramesDB.showPartyFrames = true end
     if SlamFramesDB.partyHideInRaid == nil then SlamFramesDB.partyHideInRaid = true end
+    if SlamFramesDB.showPartyPower == nil then SlamFramesDB.showPartyPower = true end
     SlamFramesDB.partySpacing = Clamp(tonumber(SlamFramesDB.partySpacing) or 8, 0, 40)
     SlamFramesDB.partyNameOffset = Clamp(tonumber(SlamFramesDB.partyNameOffset) or 0, -150, 150)
     if SlamFramesDB.raidHealthTextMode == nil then SlamFramesDB.raidHealthTextMode = "percent" end
@@ -428,7 +430,7 @@ local function DBInit()
     if SlamFramesDB.scales.raid == nil then SlamFramesDB.scales.raid = DEFAULT_SCALES.raid end
 
     if SF.InitClickCastingDB then SF:InitClickCastingDB() end
-    SlamFramesDB.dbVersion = 23
+    SlamFramesDB.dbVersion = 24
 end
 
 local function FormatNumber(n)
@@ -594,7 +596,7 @@ end
 
 local function UpdateFrameMouseState(frame)
     if not frame then return end
-    -- TEST50: while locked, a real Button child owns unit-frame clicks. This
+    -- While locked, a real Button child owns unit-frame clicks. This
     -- keeps spell/item execution inside Button OnClick, matching proven 1.12
     -- healer-frame implementations. While unlocked, the parent owns the mouse
     -- so movement/scaling continues to work exactly as before.
@@ -604,25 +606,371 @@ local function UpdateFrameMouseState(frame)
     if SF.RefreshUnitClickButton then SF:RefreshUnitClickButton(frame) end
 end
 
-local function UnitMenuForFrame(frame)
-    if not frame or not frame.unit or not UnitExists(frame.unit) then return end
-    local dropdown = nil
-    if frame.unit == "player" then
-        dropdown = PlayerFrameDropDown
-    elseif frame.unit == "target" or frame.unit == "targettarget" then
-        dropdown = TargetFrameDropDown
-    elseif string.sub(frame.unit,1,5) == "party" then
-        local idx=tonumber(string.sub(frame.unit,6))
-        if idx and idx>=1 and idx<=4 then
-            if type(getglobal)=="function" then dropdown=getglobal("PartyMemberFrame"..idx.."DropDown")
-            elseif _G then dropdown=_G["PartyMemberFrame"..idx.."DropDown"] end
+local slamFramesUnitDropDown = nil
+
+local function SafeUnitIsUnit(a,b)
+    if type(UnitIsUnit)~="function" then return false end
+    local ok,same=pcall(UnitIsUnit,a,b)
+    return ok and same and true or false
+end
+
+local function SlamFramesUnitMenuType(unit)
+    -- Vanilla 1.12 menu resolver used only for unit tokens that do not have
+    -- one of Blizzard's native dropdown frames available to us.
+    if SafeUnitIsUnit(unit,"player") then return "SELF" end
+    if SafeUnitIsUnit(unit,"pet") then return "PET" end
+
+    if type(UnitIsPlayer)=="function" and UnitIsPlayer(unit) then
+        local grouped=false
+        if type(UnitInParty)=="function" then
+            local ok,v=pcall(UnitInParty,unit)
+            if ok and v then grouped=true end
+        end
+        if not grouped and type(UnitInRaid)=="function" then
+            local ok,v=pcall(UnitInRaid,unit)
+            if ok and v then grouped=true end
+        end
+        if not grouped then
+            local prefix=string.sub(unit or "",1,5)
+            if prefix=="party" or string.sub(unit or "",1,4)=="raid" then grouped=true end
+        end
+        if grouped then return "PARTY" end
+        return "PLAYER"
+    end
+
+    return "RAID_TARGET_ICON"
+end
+
+local function ToggleNativeUnitDropDown(dropdown)
+    if not dropdown or type(ToggleDropDownMenu)~="function" then return false end
+    -- Use Blizzard's already-created/initialized 1.12 dropdown objects.
+    -- Anchoring at the cursor avoids depending on the stock Player/Party/
+    -- Target frame itself being visible (SlamFrames normally hides them).
+    ToggleDropDownMenu(1,nil,dropdown,"cursor",0,0)
+    return true
+end
+
+local function EnsureSlamFramesUnitDropDown()
+    if slamFramesUnitDropDown then return slamFramesUnitDropDown end
+    if type(CreateFrame)~="function" then return nil end
+    slamFramesUnitDropDown=CreateFrame("Frame","SlamFramesUnitDropDown",UIParent,"UIDropDownMenuTemplate")
+
+    -- Stock 1.12 does real setup work inside UIDropDownMenu_Initialize; simply
+    -- setting displayMode/initialize on the table is not equivalent. Initialize
+    -- this custom fallback exactly as Blizzard initializes its own unit menus.
+    if type(UIDropDownMenu_Initialize)=="function" then
+        slamFramesUnitDropDown.initialize=function() end
+        UIDropDownMenu_Initialize(slamFramesUnitDropDown,slamFramesUnitDropDown.initialize,"MENU")
+    else
+        slamFramesUnitDropDown.displayMode="MENU"
+    end
+    return slamFramesUnitDropDown
+end
+
+local slamFramesContextMenu = nil
+
+local function UnitTokenIsGrouped(unit)
+    if not unit then return false end
+    local p=string.sub(unit,1,5)
+    if p=="party" or string.sub(unit,1,4)=="raid" then return true end
+    if type(UnitInParty)=="function" then
+        local ok,v=pcall(UnitInParty,unit)
+        if ok and v then return true end
+    end
+    if type(UnitInRaid)=="function" then
+        local ok,v=pcall(UnitInRaid,unit)
+        if ok and v then return true end
+    end
+    return false
+end
+
+local function InAnyGroup()
+    local p=(type(GetNumPartyMembers)=="function" and GetNumPartyMembers()) or 0
+    local r=(type(GetNumRaidMembers)=="function" and GetNumRaidMembers()) or 0
+    return (p>0 or r>0)
+end
+
+local function CanCooperateWith(unit)
+    if type(UnitCanCooperate)~="function" then return true end
+    local ok,v=pcall(UnitCanCooperate,"player",unit)
+    if not ok then return true end
+    return v and true or false
+end
+
+local function FindRaidIndexByName(name)
+    if not name or type(GetNumRaidMembers)~="function" or type(GetRaidRosterInfo)~="function" then return nil end
+    local n=GetNumRaidMembers() or 0
+    local i
+    for i=1,n do
+        local rn=GetRaidRosterInfo(i)
+        if rn==name then return i end
+    end
+    return nil
+end
+
+local function HideSlamFramesContextMenu()
+    if slamFramesContextMenu then slamFramesContextMenu:Hide() end
+end
+
+local function ContextActionButton(parent,index,label,action)
+    local b=parent.buttons[index]
+    if not b then
+        b=CreateFrame("Button",nil,parent)
+        b:SetHeight(20)
+        b:SetPoint("TOPLEFT",parent,"TOPLEFT",8,-8-((index-1)*20))
+        b:SetPoint("TOPRIGHT",parent,"TOPRIGHT",-8,-8-((index-1)*20))
+        local hl=b:CreateTexture(nil,"BACKGROUND")
+        hl:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
+        hl:SetBlendMode("ADD")
+        hl:SetAllPoints(b)
+        hl:Hide()
+        b.highlight=hl
+        b:SetScript("OnEnter",function() if this.highlight then this.highlight:Show() end end)
+        b:SetScript("OnLeave",function() if this.highlight then this.highlight:Hide() end end)
+        local fs=b:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+        fs:SetPoint("LEFT",b,"LEFT",4,0)
+        fs:SetJustifyH("LEFT")
+        b.text=fs
+        b:SetScript("OnClick",function()
+            local fn=this.sfAction
+            HideSlamFramesContextMenu()
+            if fn then fn() end
+        end)
+        parent.buttons[index]=b
+    end
+    b.sfAction=action
+    b.text:SetText(label)
+    b:Show()
+    return b
+end
+
+local function EnsureSlamFramesContextMenu(anchorFrame)
+    if slamFramesContextMenu then return slamFramesContextMenu end
+    if type(CreateFrame)~="function" then return nil end
+    -- UIParent is expected on Vanilla, but use the clicked frame's parent as a
+    -- last-resort parent so the menu still exists on stripped/custom FrameXML.
+    local parent=UIParent
+    if not parent and anchorFrame and anchorFrame.GetParent then parent=anchorFrame:GetParent() end
+    if not parent then return nil end
+    local f=CreateFrame("Frame",nil,parent)
+    if f.SetFrameStrata then f:SetFrameStrata("TOOLTIP") end
+    if f.SetFrameLevel then f:SetFrameLevel(1000) end
+    f:SetWidth(180)
+    f:SetHeight(40)
+    f:EnableMouse(true)
+    if f.SetBackdrop then
+        f:SetBackdrop({bgFile="Interface\\Tooltips\\UI-Tooltip-Background",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",tile=true,tileSize=16,edgeSize=16,insets={left=4,right=4,top=4,bottom=4}})
+        if f.SetBackdropColor then f:SetBackdropColor(0.04,0.04,0.04,0.98) end
+        if f.SetBackdropBorderColor then f:SetBackdropBorderColor(0.65,0.50,0.22,1) end
+    else
+        local bg=f:CreateTexture(nil,"BACKGROUND")
+        bg:SetTexture(0.04,0.04,0.04,0.98)
+        bg:SetAllPoints(f)
+        f.sfBackground=bg
+    end
+    f.buttons={}
+    f:Hide()
+    slamFramesContextMenu=f
+    return f
+end
+
+local function AddContextItem(items,label,fn)
+    if type(fn)=="function" then table.insert(items,{label=label,fn=fn}) end
+end
+
+local function ShowSlamFramesContextMenu(frame)
+    if not frame or not frame.unit then return false end
+    local unit=frame.unit
+    local exists=nil
+    if type(UnitExists)=="function" then exists=UnitExists(unit) end
+    local name=nil
+    if type(UnitName)=="function" then name=UnitName(unit) end
+    if not name then name=unit end
+    if SF.clickCastDebug then
+        Print("CLICKDBG: standalone menu precheck unit="..tostring(unit).." exists="..tostring(exists).." name="..tostring(name).." UIParent="..tostring(UIParent~=nil).." CreateFrame="..tostring(type(CreateFrame)))
+    end
+    local menu=EnsureSlamFramesContextMenu(frame)
+    if not menu then
+        if SF.clickCastDebug then Print("CLICKDBG: standalone menu creation FAILED") end
+        return false
+    end
+
+    local isSelf=SafeUnitIsUnit(unit,"player")
+    if frame.frameKey=="player" or unit=="player" then isSelf=true end
+    local isPlayer=false
+    if type(UnitIsPlayer)=="function" then isPlayer=UnitIsPlayer(unit) and true or false end
+    if isSelf or string.sub(unit,1,5)=="party" or string.sub(unit,1,4)=="raid" then isPlayer=true end
+    local grouped=UnitTokenIsGrouped(unit)
+    local coop=CanCooperateWith(unit)
+    local items={}
+
+    if isSelf then
+        if InAnyGroup() and type(LeaveParty)=="function" then
+            AddContextItem(items,"Leave Party",function() LeaveParty() end)
+        end
+        if type(StaticPopup_Show)=="function" then
+            AddContextItem(items,"Reset Instances",function() StaticPopup_Show("CONFIRM_RESET_INSTANCES") end)
+        end
+    elseif isPlayer then
+        if name and type(ChatFrame_SendTell)=="function" then
+            AddContextItem(items,"Whisper",function() ChatFrame_SendTell(name) end)
+        end
+        if coop and type(InspectUnit)=="function" then
+            AddContextItem(items,"Inspect",function() InspectUnit(unit) end)
+        end
+        if coop and type(InitiateTrade)=="function" then
+            AddContextItem(items,"Trade",function() InitiateTrade(unit) end)
+        end
+        if coop and name and type(FollowByName)=="function" then
+            AddContextItem(items,"Follow",function() FollowByName(name,1) end)
+        end
+        if coop and type(StartDuelUnit)=="function" then
+            AddContextItem(items,"Duel",function() StartDuelUnit(unit) end)
+        end
+        if not grouped then
+            if type(InviteToParty)=="function" then
+                AddContextItem(items,"Invite",function() InviteToParty(unit) end)
+            elseif name and type(InviteByName)=="function" then
+                AddContextItem(items,"Invite",function() InviteByName(name) end)
+            end
+        end
+
+        local _,_,partyIndex=string.find(unit or "","^party([1-4])$")
+        if partyIndex and type(IsPartyLeader)=="function" and IsPartyLeader() then
+            if type(PromoteToPartyLeader)=="function" then
+                AddContextItem(items,"Promote to Leader",function() PromoteToPartyLeader(unit) end)
+            end
+            if type(UninviteFromParty)=="function" then
+                AddContextItem(items,"Remove from Party",function() UninviteFromParty(unit) end)
+            end
+        end
+
+        local raidIndex=FindRaidIndexByName(name)
+        if raidIndex then
+            local canRaidManage=false
+            if type(IsRaidLeader)=="function" and IsRaidLeader() then canRaidManage=true end
+            if type(IsRaidOfficer)=="function" and IsRaidOfficer() then canRaidManage=true end
+            if canRaidManage then
+                if type(PromoteByName)=="function" then
+                    AddContextItem(items,"Promote to Raid Leader",function() PromoteByName(name) end)
+                end
+                if type(PromoteToAssistant)=="function" then
+                    AddContextItem(items,"Promote Assistant",function() PromoteToAssistant(name) end)
+                end
+                if type(DemoteAssistant)=="function" then
+                    AddContextItem(items,"Demote Assistant",function() DemoteAssistant(name) end)
+                end
+                if type(UninviteFromRaid)=="function" then
+                    AddContextItem(items,"Remove from Raid",function() UninviteFromRaid(raidIndex) end)
+                end
+            end
+        end
+    else
+        -- Vanilla's stock non-player target menu is mostly raid-marker control.
+        -- Keep one useful normal action here instead of presenting an empty menu.
+        if type(SetRaidTarget)=="function" then
+            AddContextItem(items,"Clear Raid Marker",function() SetRaidTarget(unit,0) end)
         end
     end
-    if dropdown and ToggleDropDownMenu then
-        dropdown.unit = frame.unit
-        dropdown.name = UnitName(frame.unit)
-        ToggleDropDownMenu(1, nil, dropdown, "cursor")
+
+    AddContextItem(items,"Cancel",function() end)
+
+    local i
+    for i=1,table.getn(items) do
+        ContextActionButton(menu,i,items[i].label,items[i].fn)
     end
+    for i=table.getn(items)+1,table.getn(menu.buttons) do
+        menu.buttons[i]:Hide()
+    end
+
+    menu:SetHeight(16+(table.getn(items)*20))
+    menu:ClearAllPoints()
+    local parent=UIParent
+    if not parent and menu.GetParent then parent=menu:GetParent() end
+    local anchored=false
+    if parent and type(GetCursorPosition)=="function" then
+        local x,y=GetCursorPosition()
+        local scale=1
+        if parent.GetEffectiveScale then scale=parent:GetEffectiveScale() or 1 end
+        if scale==0 then scale=1 end
+        x=x/scale; y=y/scale
+        if y < menu:GetHeight()+12 then
+            menu:SetPoint("BOTTOMLEFT",parent,"BOTTOMLEFT",x,y)
+        else
+            menu:SetPoint("TOPLEFT",parent,"BOTTOMLEFT",x,y)
+        end
+        anchored=true
+    end
+    if not anchored then
+        menu:SetPoint("TOPLEFT",frame,"BOTTOMLEFT",0,-4)
+    end
+    menu:Show()
+    if menu.Raise then menu:Raise() end
+    if SF.clickCastDebug then Print("CLICKDBG: standalone menu shown items="..tostring(table.getn(items)).." visible="..tostring(menu:IsVisible())) end
+    return true
+end
+
+local function UnitMenuForFrame(self, frame)
+    -- All callers invoke this as SF:UnitMenuForFrame(frame).  With Lua colon
+    -- syntax the first argument is SF itself, so the method must accept self
+    -- before the actual clicked frame.  an earlier implementation declared only
+    -- one parameter, causing `frame` to be SF and returning false immediately.
+    if not frame or not frame.unit then
+        if SF.clickCastDebug then Print("CLICKDBG: menu route rejected frame="..tostring(frame).." frame.unit="..tostring(frame and frame.unit)) end
+        return false
+    end
+
+    local unit=frame.unit
+    if SF.clickCastDebug then
+        local exists=nil
+        if type(UnitExists)=="function" then exists=UnitExists(unit) end
+        Print("CLICKDBG: menu route unit="..tostring(unit).." exists="..tostring(exists).." ToggleDropDownMenu="..tostring(type(ToggleDropDownMenu)).." UnitPopup_ShowMenu="..tostring(type(UnitPopup_ShowMenu)))
+    end
+
+    -- Prefer Blizzard's native 1.12 dropdowns when this client exposes them.
+    if SafeUnitIsUnit(unit,"player") and PlayerFrameDropDown then
+        if ToggleNativeUnitDropDown(PlayerFrameDropDown) then return true end
+    end
+
+    local _,_,partyIndex=string.find(unit or "","^party([1-4])$")
+    if partyIndex then
+        local dd=nil
+        if type(getglobal)=="function" then dd=getglobal("PartyMemberFrame"..partyIndex.."DropDown") end
+        if not dd and _G then dd=_G["PartyMemberFrame"..partyIndex.."DropDown"] end
+        if dd and ToggleNativeUnitDropDown(dd) then return true end
+    end
+
+    if unit=="target" and TargetFrameDropDown then
+        if ToggleNativeUnitDropDown(TargetFrameDropDown) then return true end
+    end
+
+    -- Some OctoWoW/SuperWoW installations intentionally do not expose the
+    -- Blizzard UnitPopup/UIDropDown globals at all. If they do exist, use them.
+    if type(ToggleDropDownMenu)=="function" and type(UnitPopup_ShowMenu)=="function" then
+        local dropdown=EnsureSlamFramesUnitDropDown()
+        if dropdown then
+            local which=SlamFramesUnitMenuType(unit)
+            local name=nil
+            if which=="RAID_TARGET_ICON" then name=RAID_TARGET_ICON end
+            dropdown.unit=unit
+            dropdown.name=UnitName(unit)
+            dropdown.which=which
+            dropdown.initialize=function(level)
+                UnitPopup_ShowMenu(dropdown,which,unit,name)
+            end
+            dropdown.displayMode="MENU"
+            ToggleDropDownMenu(1,nil,dropdown,"cursor",0,0)
+            return true
+        end
+    end
+
+    -- Standalone fallback. This deliberately does not depend on
+    -- UIDropDownMenu, UnitPopup or ClassicAPI secure attributes, so SlamFrames
+    -- still provides the expected player/party context actions on stripped UI
+    -- builds such as the user's SuperWoW 2.2 environment.
+    local shown=ShowSlamFramesContextMenu(frame)
+    if SF.clickCastDebug then Print("CLICKDBG: standalone fallback result="..tostring(shown)) end
+    return shown
 end
 SF.UnitMenuForFrame = UnitMenuForFrame
 
@@ -678,7 +1026,7 @@ function SF:ApplyFrameLayerBase(frame, base)
     -- Explicitly level every nested frame so the bars can never disappear.
     frame.sfLayerBase = base or 10
 
-    -- TEST38: dynamic strata.  MEDIUM is required during normal gameplay so
+    -- Dynamic strata.  MEDIUM is required during normal gameplay so
     -- world/nameplate frames never cut through SlamFrames.  When a managed
     -- Blizzard UIPanel is open we temporarily drop to LOW so that panel wins.
     local unitStrata = self:GetUnitFrameStrata()
@@ -721,7 +1069,7 @@ function SF:ApplyFrameLayerBase(frame, base)
             a:SetFrameStrata(unitStrata)
             a:SetFrameLevel(auraLevel)
 
-            -- TEST40: aura timer text lives on its own child frame. TEST38's
+            -- Aura timer text lives on its own child frame. The current
             -- dynamic unit-frame layering can raise/lower the aura button long
             -- after that timer frame was created. On the 1.12 client an
             -- explicitly-set child frame level can remain at its old absolute
@@ -791,7 +1139,7 @@ local function SetupDrag(frame, key)
         SF:BringToFront(this)
     end)
     frame:SetScript("OnMouseUp", function()
-        -- TEST50: locked clicks are handled by the dedicated child Button's
+        -- Locked clicks are handled by the dedicated child Button's
         -- OnClick script. The parent OnMouseUp is intentionally inert while
         -- locked so one hardware click can never dispatch twice.
         if SlamFramesDB.locked then return end
@@ -943,6 +1291,18 @@ local function CreateUnitFrame(kind,key,unit,cfg)
     if cfg.power then
         f.power=Bars:Create(f.barFrame,cfg.power,TEX,"power_fill.tga")
         f.power:SetSmooth(SlamFramesDB.smoothBars)
+        if key=="party" then
+            -- Party resources are a real second bar, not an overlay hidden
+            -- behind the health bar. Dragonflight: Reloaded's Turtle/1.18
+            -- implementation uses the same UnitMana/UnitPowerType APIs with a
+            -- dedicated 7px party power bar, so keep ours separate and force
+            -- it one frame level above the health bar.
+            f.power:SetFrameLevel(f.barFrame:GetFrameLevel()+2)
+            f.partyPowerBg=f.power:CreateTexture(nil,"BACKGROUND")
+            f.partyPowerBg:SetTexture("Interface\\Buttons\\WHITE8X8")
+            f.partyPowerBg:SetVertexColor(0.035,0.040,0.050,0.96)
+            f.partyPowerBg:SetAllPoints(f.power)
+        end
     end
 
     f.textFrame=CreateFrame("Frame",nil,f)
@@ -1067,7 +1427,10 @@ function SF:LayoutFrame(frame,key,scale)
     frame.portrait:SetLayout(scale,portraitShift)
 
     frame.health:SetLayout(scale,trim)
-    if frame.power then frame.power:SetLayout(scale,trim) end
+    if frame.power then
+        frame.power:SetLayout(scale,trim)
+        if key=="party" and not SlamFramesDB.showPartyPower then frame.power:Hide() end
+    end
     LayoutText(frame,scale,trim)
     if key=="target" then self:LayoutAuras() end
     if key=="player" and self.LayoutPlayerEffects then self:LayoutPlayerEffects() end
@@ -1431,6 +1794,23 @@ function SF:SetPartyHideInRaid(v,quiet)
     if not quiet then Print("hide party frames in raid "..(SlamFramesDB.partyHideInRaid and "ON" or "OFF")) end
 end
 
+function SF:SetPartyPowerEnabled(v,quiet)
+    SlamFramesDB.showPartyPower=v and true or false
+    local i
+    if self.partyFrames then
+        for i=1,table.getn(self.partyFrames) do
+            if SlamFramesDB.showPartyPower then
+                self:UpdatePartyFramePower(i)
+            elseif self.partyFrames[i] and self.partyFrames[i].power then
+                self.partyFrames[i].power:Hide()
+                if self.partyFrames[i].powerText then self.partyFrames[i].powerText:SetText("") end
+            end
+        end
+    end
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("party resource bar "..(SlamFramesDB.showPartyPower and "ON" or "OFF")) end
+end
+
 function SF:ResetPartyPosition()
     SlamFramesDB.anchors.party=CopyAnchor(DEFAULT_ANCHORS.party); SlamFramesDB.anchors.raid=CopyAnchor(DEFAULT_ANCHORS.raid)
     self:LayoutPartyFrames()
@@ -1589,6 +1969,12 @@ end
 
 local PARTY_TEST_NAMES={"Aegis","Moonleaf","Ashen","Stormcall"}
 local PARTY_TEST_HEALTH={{6840,7200},{5120,6900},{7990,8100},{4360,6200}}
+local PARTY_TEST_POWER={
+    {64,100,0.05,0.45,1.00}, -- mana
+    {72,100,0.95,0.12,0.08}, -- rage
+    {48,100,0.95,0.78,0.10}, -- energy
+    {87,100,0.05,0.45,1.00}, -- mana
+}
 
 function SF:UpdatePartyFrame(index)
     local f=self.partyFrames and self.partyFrames[index]
@@ -1610,7 +1996,171 @@ function SF:UpdatePartyFrame(index)
     SetHealthTexts(f,cur,maxv)
     f.name:SetText(UnitDisplayName(unit,PARTY_TEST_NAMES[index]))
     SetLevelIndicator(f,unit,math.max(1,(UnitLevel("player") or 60)-(index-1)),false)
-    UpdatePortrait(f)
+    -- Party portraits are the most expensive part of a full member refresh:
+    -- each circular portrait is composed from many texture slices. Queue the
+    -- slices instead of calling SetPortraitTexture on all of them in one frame.
+    if self.testMode and not UnitExists(unit) then
+        UpdatePortrait(f)
+    elseif self.QueuePartyPortraitUpdate then
+        self:QueuePartyPortraitUpdate(index,false)
+    else
+        UpdatePortrait(f)
+    end
+    f:Show()
+    self:UpdatePartyFramePower(index)
+    if self.UpdateHealPredictionForFrame then self:UpdateHealPredictionForFrame(f,unit) end
+end
+
+function SF:UpdatePartyFramePower(index)
+    local f=self.partyFrames and self.partyFrames[index]
+    if not f or not f.power then return end
+    local unit="party"..index
+    f.unit=unit
+
+    if not SlamFramesDB.showPartyFrames or not SlamFramesDB.showPartyPower then
+        f.power:Hide()
+        if f.powerText then f.powerText:SetText("") end
+        return
+    end
+    if SlamFramesDB.partyHideInRaid and self:IsInRaidGroup() and not self.testMode then
+        f.power:Hide()
+        if f.powerText then f.powerText:SetText("") end
+        return
+    end
+    if not UnitExists(unit) and not self.testMode then
+        f.power:Hide()
+        if f.powerText then f.powerText:SetText("") end
+        return
+    end
+
+    local cur,maxv,r,g,b,powerType
+    if self.testMode and not UnitExists(unit) then
+        local d=PARTY_TEST_POWER[index] or PARTY_TEST_POWER[1]
+        cur,maxv,r,g,b=d[1],d[2],d[3],d[4],d[5]
+    else
+        -- Vanilla/Turtle party frames expose all resource types through the
+        -- UnitMana/UnitManaMax pair; UnitPowerType tells us how to color them.
+        -- This is also the path used by Dragonflight: Reloaded on Turtle 1.18.
+        cur=UnitMana(unit) or 0
+        maxv=UnitManaMax(unit) or 0
+        powerType=UnitPowerType(unit)
+        r,g,b=PowerColor(unit)
+        -- Some old-client/server combinations briefly report max=0 while a
+        -- rage/energy token is settling. Keep the bar allocated instead of
+        -- flashing it away; these resources use a 0-100 scale.
+        if maxv<=0 and (powerType==1 or powerType==2 or powerType==3) then maxv=100 end
+    end
+    if maxv<=0 then
+        f.power:Hide()
+        if f.powerText then f.powerText:SetText("") end
+        return
+    end
+
+    f.power:SetFillColor(r,g,b,1)
+    f.power:SetValue(cur,maxv,self.testMode)
+    f.power:Show()
+    -- Party resource bars intentionally use color rather than numbers. Keeping
+    -- text off preserves the compact frame and avoids extra font updates on
+    -- rapid rage/energy events.
+    if f.powerText then f.powerText:SetText(""); f.powerText:Hide() end
+end
+
+function SF:QueuePartyPowerUpdate(index)
+    if not index or index<1 or index>4 then return end
+    self.partyPowerUpdatePending=self.partyPowerUpdatePending or {}
+    self.partyPowerUpdatePending[index]=true
+end
+
+function SF:ProcessPartyPowerUpdates(elapsed)
+    if not self.partyPowerUpdatePending or self.partyRosterRefreshPending then return end
+    self.partyPowerUpdateElapsed=(tonumber(self.partyPowerUpdateElapsed) or 0)+(tonumber(elapsed) or 0)
+    -- Cap Party resource rendering at 20 Hz. This coalesces rapid rage/energy
+    -- event bursts without delaying normal visual feedback.
+    if self.partyPowerUpdateElapsed<0.05 then return end
+    self.partyPowerUpdateElapsed=0
+    local i
+    for i=1,4 do
+        if self.partyPowerUpdatePending[i] then
+            self.partyPowerUpdatePending[i]=nil
+            self:UpdatePartyFramePower(i)
+        end
+    end
+end
+
+-- Party portrait work is deliberately amortized. A party portrait uses many
+-- circular texture slices, so a four-member roster join can otherwise call
+-- SetPortraitTexture hundreds of times in a very short burst on the Vanilla
+-- client. Process only a handful of slices per rendered frame.
+function SF:QueuePartyPortraitUpdate(index,force)
+    if not index or index<1 or index>4 then return end
+    local f=self.partyFrames and self.partyFrames[index]
+    if not f or not f.portrait or not f.portrait.slices then return end
+    local unit="party"..index
+    local identity=UnitExists(unit) and (UnitName(unit) or unit) or ""
+    if not force and f.sfPartyPortraitIdentity==identity and identity~="" then return end
+    self.partyPortraitQueue=self.partyPortraitQueue or {}
+    self.partyPortraitQueue[index]={slice=1,identity=identity,unit=unit,clear=(identity=="")}
+end
+
+function SF:ProcessPartyPortraitUpdates()
+    local q=self.partyPortraitQueue
+    if not q then return end
+    local budget=6
+    local i
+    for i=1,4 do
+        local job=q[i]
+        if job and budget>0 then
+            local f=self.partyFrames and self.partyFrames[i]
+            local pf=f and f.portrait
+            if not pf or not pf.slices then
+                q[i]=nil
+            else
+                local identity=UnitExists(job.unit) and (UnitName(job.unit) or job.unit) or ""
+                if identity~=job.identity then
+                    job.identity=identity; job.slice=1; job.clear=(identity=="")
+                end
+                local count=table.getn(pf.slices)
+                while job.slice<=count and budget>0 do
+                    local tex=pf.slices[job.slice]
+                    if job.clear then
+                        tex:SetTexture(nil)
+                    else
+                        SetPortraitTexture(tex,job.unit)
+                        local c=tex.sfTexCoord
+                        if c then tex:SetTexCoord(c[1],c[2],c[3],c[4]) end
+                        tex:Show()
+                    end
+                    job.slice=job.slice+1
+                    budget=budget-1
+                end
+                if job.slice>count then
+                    f.sfPartyPortraitIdentity=job.identity
+                    q[i]=nil
+                end
+            end
+        end
+        if budget<=0 then break end
+    end
+end
+
+function SF:UpdatePartyFrameHealth(index)
+    local f=self.partyFrames and self.partyFrames[index]
+    if not f then return end
+    local unit="party"..index
+    f.unit=unit
+
+    if not SlamFramesDB.showPartyFrames then f:Hide(); return end
+    if SlamFramesDB.partyHideInRaid and self:IsInRaidGroup() and not self.testMode then f:Hide(); return end
+    if not UnitExists(unit) and not self.testMode then f:Hide(); return end
+
+    local cur,maxv
+    if self.testMode and not UnitExists(unit) then
+        cur=PARTY_TEST_HEALTH[index][1]; maxv=PARTY_TEST_HEALTH[index][2]
+    else
+        cur=UnitHealth(unit) or 0; maxv=UnitHealthMax(unit) or 1
+    end
+    f.health:SetValue(cur,maxv,self.testMode)
+    SetHealthTexts(f,cur,maxv)
     f:Show()
     if self.UpdateHealPredictionForFrame then self:UpdateHealPredictionForFrame(f,unit) end
 end
@@ -1619,6 +2169,55 @@ function SF:UpdatePartyFrames()
     if not self.partyFrames then return end
     local i
     for i=1,table.getn(self.partyFrames) do self:UpdatePartyFrame(i) end
+end
+
+-- Party roster changes can arrive as a burst of PARTY_MEMBERS_CHANGED plus
+-- UNIT_NAME_UPDATE / UNIT_PORTRAIT_UPDATE events.  Updating every portrait,
+-- label, level, prediction and debuff alert synchronously in that burst causes
+-- a visible hitch on the Vanilla client.  Collapse the burst, wait briefly for
+-- the roster to settle, then refresh one party member per rendered frame.
+function SF:QueuePartyRosterRefresh(reason)
+    if not self.partyFrames then return end
+    if self.partyRosterRefreshPending then
+        -- A party join commonly emits several roster/leader events. Do not
+        -- restart an in-progress refresh from member 1 for every duplicate.
+        -- Before processing starts, only extend the short settle delay. Once
+        -- processing has begun, request one final pass after the current one.
+        if (tonumber(self.partyRosterRefreshIndex) or 1)<=1 then
+            self.partyRosterRefreshDelay=0.08
+        else
+            self.partyRosterRefreshAgain=true
+        end
+        self.partyRosterRefreshReason=reason
+        return
+    end
+    self.partyRosterRefreshPending=true
+    self.partyRosterRefreshIndex=1
+    self.partyRosterRefreshDelay=0.08
+    self.partyRosterRefreshReason=reason
+end
+
+function SF:ProcessPartyRosterRefresh(elapsed)
+    if not self.partyRosterRefreshPending then return end
+    self.partyRosterRefreshDelay=(tonumber(self.partyRosterRefreshDelay) or 0)-(tonumber(elapsed) or 0)
+    if self.partyRosterRefreshDelay>0 then return end
+
+    local index=tonumber(self.partyRosterRefreshIndex) or 1
+    if index<=4 then
+        self:UpdatePartyFrame(index)
+        if self.UpdatePartyDebuffAlert then self:UpdatePartyDebuffAlert(index) end
+        self.partyRosterRefreshIndex=index+1
+        return
+    end
+
+    local again=self.partyRosterRefreshAgain
+    self.partyRosterRefreshPending=nil
+    self.partyRosterRefreshIndex=nil
+    self.partyRosterRefreshDelay=nil
+    self.partyRosterRefreshReason=nil
+    self.partyRosterRefreshAgain=nil
+    if self.UpdateBlizzardPartyFrames then self:UpdateBlizzardPartyFrames() end
+    if again then self:QueuePartyRosterRefresh("settled") end
 end
 
 local function IsTexturePath(v)
@@ -2218,19 +2817,29 @@ function SF:UpdateBlizzardPartyFrames()
         elseif _G then bf=_G["PartyMemberFrame"..i] else bf=nil end
         if bf then
             if suppress then
-                if bf.sfSlamFramesOldAlpha==nil and bf.GetAlpha then bf.sfSlamFramesOldAlpha=bf:GetAlpha() end
-                if bf.sfSlamFramesOldMouse==nil and bf.IsMouseEnabled then bf.sfSlamFramesOldMouse=bf:IsMouseEnabled() end
-                bf:SetAlpha(0)
-                bf:EnableMouse(false)
-                bf:Hide()
+                -- Party performance fix: suppress Blizzard's party frames once
+                -- instead of re-hiding all four frames every 0.20 seconds.
+                -- Alpha=0 and mouse disabled remain persistent while Blizzard
+                -- continues to own its normal internal update/event behavior.
+                if not bf.sfSlamFramesSuppressed then
+                    if bf.sfSlamFramesOldAlpha==nil and bf.GetAlpha then bf.sfSlamFramesOldAlpha=bf:GetAlpha() end
+                    if bf.sfSlamFramesOldMouse==nil and bf.IsMouseEnabled then bf.sfSlamFramesOldMouse=bf:IsMouseEnabled() end
+                    bf:SetAlpha(0)
+                    bf:EnableMouse(false)
+                    bf:Hide()
+                    bf.sfSlamFramesSuppressed=true
+                end
             else
-                if bf.sfSlamFramesOldAlpha~=nil then bf:SetAlpha(bf.sfSlamFramesOldAlpha); bf.sfSlamFramesOldAlpha=nil else bf:SetAlpha(1) end
-                if bf.sfSlamFramesOldMouse~=nil then bf:EnableMouse(bf.sfSlamFramesOldMouse and true or false); bf.sfSlamFramesOldMouse=nil else bf:EnableMouse(true) end
-                -- If Party Frames were disabled while already grouped, Blizzard
-                -- may not emit another roster event to reshow its frame. Restore
-                -- the visible party member immediately; later native events still
-                -- retain ownership of normal Blizzard visibility.
-                if UnitExists("party"..i) and bf.Show then bf:Show() end
+                if bf.sfSlamFramesSuppressed then
+                    if bf.sfSlamFramesOldAlpha~=nil then bf:SetAlpha(bf.sfSlamFramesOldAlpha); bf.sfSlamFramesOldAlpha=nil else bf:SetAlpha(1) end
+                    if bf.sfSlamFramesOldMouse~=nil then bf:EnableMouse(bf.sfSlamFramesOldMouse and true or false); bf.sfSlamFramesOldMouse=nil else bf:EnableMouse(true) end
+                    bf.sfSlamFramesSuppressed=nil
+                    -- If Party Frames were disabled while already grouped, Blizzard
+                    -- may not emit another roster event to reshow its frame. Restore
+                    -- the visible party member immediately; later native events still
+                    -- retain ownership of normal Blizzard visibility.
+                    if UnitExists("party"..i) and bf.Show then bf:Show() end
+                end
             end
         end
     end
@@ -2305,6 +2914,31 @@ function SF:Reset(key)
         LeftButton={mode="base",base="target",spell=""},
         RightButton={mode="base",base="menu",spell=""},
         MiddleButton={mode="base",base="none",spell=""},
+    }
+    -- Factory click-casting defaults intentionally contain no spell or item names.
+    -- Resetting the addon must clear the newer modifier-aware binding table too,
+    -- otherwise an old left-click spell can survive a Reset All operation.
+    SlamFramesDB.clickBindingSets={
+        none={
+            LeftButton={action="normal",spell=""},
+            RightButton={action="normal",spell=""},
+            MiddleButton={action="normal",spell=""},
+        },
+        shift={
+            LeftButton={action="normal",spell=""},
+            RightButton={action="normal",spell=""},
+            MiddleButton={action="normal",spell=""},
+        },
+        ctrl={
+            LeftButton={action="normal",spell=""},
+            RightButton={action="normal",spell=""},
+            MiddleButton={action="normal",spell=""},
+        },
+        alt={
+            LeftButton={action="normal",spell=""},
+            RightButton={action="normal",spell=""},
+            MiddleButton={action="normal",spell=""},
+        },
     }
     SlamFramesDB.partyDebuffAlerts=true
     SlamFramesDB.partyDebuffOnlyDispellable=true
@@ -2391,7 +3025,7 @@ function SF:CreateFrames()
         self.partyFrames[i].partyIndex=i
     end
     if self.CreatePartyDebuffAlerts then self:CreatePartyDebuffAlerts() end
-    -- TEST54: raid frames are created lazily by RaidFrames.lua only when Test Frames is active or a live raid exists.
+    -- Raid frames are created lazily by RaidFrames.lua only when Test Frames is active or a live raid exists.
     self:CreateAuras(); self:ApplyPositions(); self:RefreshFrameLayers(); self:UpdateMoveLabels(); self:SetSmoothBars(SlamFramesDB.smoothBars)
 end
 
@@ -2449,6 +3083,11 @@ function SF:HandleSlash(msg)
         if v=="show" or v=="off" then self:SetPartyHideInRaid(false,false)
         elseif v=="hide" or v=="on" then self:SetPartyHideInRaid(true,false)
         else Print("usage: /sf partyraid hide | show") end
+    elseif cmd=="partypower" then
+        local v=string.lower(rest or "")
+        if v=="on" then self:SetPartyPowerEnabled(true,false)
+        elseif v=="off" then self:SetPartyPowerEnabled(false,false)
+        else self:SetPartyPowerEnabled(not SlamFramesDB.showPartyPower,false) end
     elseif cmd=="power" then SlamFramesDB.showPowerNumbers=not SlamFramesDB.showPowerNumbers; self:RefreshAll(); if self.RefreshSettings then self:RefreshSettings() end; Print("power numbers "..(SlamFramesDB.showPowerNumbers and "on" or "off")..".")
     elseif cmd=="selftarget" or cmd=="clickself" then
         local v=string.lower(rest or "")
@@ -2470,6 +3109,11 @@ function SF:HandleSlash(msg)
     elseif cmd=="clickdiag" then
         local sw=tostring(SUPERWOW_VERSION or (type(GetSuperWoWVersion)=="function" and GetSuperWoWVersion()) or "?")
         Print("click diag: SuperWoW="..sw.." CastSpellByName="..tostring(type(CastSpellByName)).." SetMouseoverUnit="..tostring(type(SetMouseoverUnit)).." UseContainerItem="..tostring(type(UseContainerItem)))
+        local probe=self.target and self.target.sfClickButton or self.player and self.player.sfClickButton
+        Print("click diag secure: SetAttribute="..tostring(probe and type(probe.SetAttribute) or "nil").." GetAttribute="..tostring(probe and type(probe.GetAttribute) or "nil").." secureActive="..tostring((self.target and self.target.sfSecureClickActive) or (self.player and self.player.sfSecureClickActive)))
+        if probe and type(probe.GetAttribute)=="function" then
+            Print("click diag attrs: unit="..tostring(probe:GetAttribute("unit")).." type1="..tostring(probe:GetAttribute("type1")).." type2="..tostring(probe:GetAttribute("type2")).." shift-type1="..tostring(probe:GetAttribute("shift-type1")))
+        end
         local mod=(self.GetActiveClickModifier and self:GetActiveClickModifier()) or "?"
         Print("click diag binding: modifier="..tostring(mod).." left="..tostring(self.GetClickBindingText and self:GetClickBindingText(mod=="multi" and "none" or mod,"LeftButton") or "?"))
     elseif cmd=="auradiag" then
@@ -2564,7 +3208,7 @@ function SF:HandleSlash(msg)
         else Print("usage: /sf skin light | dark") end
     elseif cmd=="settings" then if self.ToggleSettings then self:ToggleSettings() end
     elseif cmd=="blizz" then SlamFramesDB.hideBlizzard=not SlamFramesDB.hideBlizzard; Print("hide Blizzard frames is now "..(SlamFramesDB.hideBlizzard and "ON" or "OFF")..". /reload to apply.")
-    else Print("commands: /sf settings | skin light/dark | castbar on/off/move/reset/test | unlock | lock | scale [player/target/tot/party] 0.60 | width [player/target/tot/party] 0-3 | portraitzoom [player/target/tot/party] 1.00-1.50 | totrelative | ccmove | ccreset | nametext 1.30 | healthtextscale 1.00 | powertextscale 1.00 | leveltextscale 1.00 | aurascale 1.00 | aurarowgap 1.0 | auratimer on/off | auratimerscale 1.00 | auradiag | combatglow on/off | combatglowstrength 0.50-2.00 | minimap on/off/reset | reset [player/target/tot/party] | health percent/amount/both/off | tothealth percent/amount | party on/off/reset | partyhealth percent/amount/off | partynamex -150..150 | partyspacing 0-40 | partyraid hide/show | selftarget on/off | power | test | auras | smooth | blizz") end
+    else Print("commands: /sf settings | skin light/dark | castbar on/off/move/reset/test | unlock | lock | scale [player/target/tot/party] 0.60 | width [player/target/tot/party] 0-3 | portraitzoom [player/target/tot/party] 1.00-1.50 | totrelative | ccmove | ccreset | nametext 1.30 | healthtextscale 1.00 | powertextscale 1.00 | leveltextscale 1.00 | aurascale 1.00 | aurarowgap 1.0 | auratimer on/off | auratimerscale 1.00 | auradiag | combatglow on/off | combatglowstrength 0.50-2.00 | minimap on/off/reset | reset [player/target/tot/party] | health percent/amount/both/off | tothealth percent/amount | party on/off/reset | partypower on/off | partyhealth percent/amount/off | partynamex -150..150 | partyspacing 0-40 | partyraid hide/show | selftarget on/off | power | test | auras | smooth | blizz") end
 end
 
 local eventFrame=CreateFrame("Frame","SlamFrames_EventFrame",UIParent)
@@ -2646,14 +3290,25 @@ eventFrame:SetScript("OnEvent",function()
     end
     if not SF.player then return end
     if ev=="PLAYER_ENTERING_WORLD" then SF:HideBlizzardFrames(); if SF.ApplyBlizzardErrorTextSetting then SF:ApplyBlizzardErrorTextSetting() end; SF:RefreshAll(); if SF.RefreshDispelCapabilities then SF:RefreshDispelCapabilities() end; if SF.UpdatePartyDebuffAlerts then SF:UpdatePartyDebuffAlerts() end; if SF.UpdateMinimapButtonIcon then SF:UpdateMinimapButtonIcon() end; if SF.ApplyExternalUISkin then SF:ApplyExternalUISkin() end
-    elseif ev=="PARTY_MEMBERS_CHANGED" or ev=="PARTY_LEADER_CHANGED" or ev=="RAID_ROSTER_UPDATE" then SF:UpdatePartyFrames(); if SF.UpdateRaidFrames then SF:UpdateRaidFrames() end; SF:UpdateBlizzardPartyFrames(); if SF.UpdatePartyDebuffAlerts then SF:UpdatePartyDebuffAlerts() end
+    elseif ev=="PARTY_MEMBERS_CHANGED" or ev=="PARTY_LEADER_CHANGED" then
+        -- Collapse the roster/name/portrait burst and spread the expensive
+        -- initial Party Frame population across several rendered frames.
+        if SF.QueuePartyRosterRefresh then SF:QueuePartyRosterRefresh(ev) else SF:UpdatePartyFrames() end
+        SF:UpdateBlizzardPartyFrames()
+    elseif ev=="RAID_ROSTER_UPDATE" then
+        if SF.QueuePartyRosterRefresh then SF:QueuePartyRosterRefresh(ev) else SF:UpdatePartyFrames() end
+        if SF.UpdateRaidFrames then SF:UpdateRaidFrames() end
+        SF:UpdateBlizzardPartyFrames()
     elseif ev=="SPELLS_CHANGED" then if SF.RefreshDispelCapabilities then SF:RefreshDispelCapabilities() end; if SF.UpdatePartyDebuffAlerts then SF:UpdatePartyDebuffAlerts() end
     elseif ev=="PLAYER_LEVEL_UP" then SF:UpdatePlayer(); SF:UpdateTarget(); SF:UpdatePartyFrames(); if SF.UpdateRaidFrames then SF:UpdateRaidFrames() end
     elseif ev=="UNIT_LEVEL" then
         if u=="player" then SF:UpdatePlayer(); SF:UpdateTarget()
         elseif u=="target" then SF:UpdateTarget()
         elseif u=="targettarget" then SF:UpdateTargetOfTarget()
-        elseif u and string.sub(u,1,5)=="party" then SF:UpdatePartyFrames() elseif u and string.sub(u,1,4)=="raid" and SF.UpdateRaidFrame then SF:UpdateRaidFrame(tonumber(string.sub(u,5)) or 1) end
+        elseif u and string.sub(u,1,5)=="party" then
+            local pi=tonumber(string.sub(u,6))
+            if pi and not SF.partyRosterRefreshPending then SF:UpdatePartyFrame(pi) end
+        elseif u and string.sub(u,1,4)=="raid" and SF.UpdateRaidFrame then SF:UpdateRaidFrame(tonumber(string.sub(u,5)) or 1) end
     elseif ev=="PLAYER_TARGET_CHANGED" then SF.lastTargetAuraGuid=GetUnitGuidCompat("target"); SF:UpdateTarget()
     elseif ev=="PLAYER_ENTER_COMBAT" or ev=="PLAYER_REGEN_DISABLED" then
         SF.inCombat=true; if SF.UpdatePlayerEffects then SF:UpdatePlayerEffects(true) end
@@ -2664,8 +3319,32 @@ eventFrame:SetScript("OnEvent",function()
     elseif u=="target" then SF:UpdateTarget()
     elseif u=="targettarget" then SF:UpdateTargetOfTarget()
     elseif u and string.sub(u,1,5)=="party" then
-        SF:UpdatePartyFrames()
-        if ev=="UNIT_AURA" and SF.UpdatePartyDebuffAlerts then SF:UpdatePartyDebuffAlerts(u) end
+        local partyIndex=tonumber(string.sub(u,6))
+        if partyIndex and partyIndex>=1 and partyIndex<=4 then
+            -- Party resource traffic must never rebuild portraits/names/levels.
+            -- Only the affected member's small power bar is queued below.
+            if SF.partyRosterRefreshPending then
+                -- The queued roster refresh will populate the final unit data.
+                -- Ignore the duplicate identity/health/aura burst generated
+                -- while party tokens are settling.
+            elseif ev=="UNIT_HEALTH" or ev=="UNIT_MAXHEALTH" then
+                SF:UpdatePartyFrameHealth(partyIndex)
+            elseif ev=="UNIT_AURA" then
+                if SF.UpdatePartyDebuffAlerts then SF:UpdatePartyDebuffAlerts(u) end
+            elseif ev=="UNIT_NAME_UPDATE" then
+                SF:UpdatePartyFrame(partyIndex)
+            elseif ev=="UNIT_PORTRAIT_UPDATE" then
+                SF:UpdatePartyFrame(partyIndex)
+                if SF.QueuePartyPortraitUpdate then SF:QueuePartyPortraitUpdate(partyIndex,true) end
+            elseif ev=="UNIT_MANA" or ev=="UNIT_MAXMANA" or ev=="UNIT_RAGE" or ev=="UNIT_ENERGY" or ev=="UNIT_DISPLAYPOWER" then
+                -- Resource traffic is intentionally isolated from the expensive
+                -- portrait/name/level path. Queue only this member's tiny power
+                -- strip, with a short coalescing throttle handled in OnUpdate.
+                if SlamFramesDB.showPartyPower and SF.QueuePartyPowerUpdate then SF:QueuePartyPowerUpdate(partyIndex) end
+            else
+                SF:UpdatePartyFrame(partyIndex)
+            end
+        end
     elseif u and string.sub(u,1,4)=="raid" and SF.UpdateRaidFrame then
         SF:UpdateRaidFrame(tonumber(string.sub(u,5)) or 1)
     end
@@ -2673,14 +3352,20 @@ end)
 
 local reconcileElapsed=0
 eventFrame:SetScript("OnUpdate",function()
-    -- TEST49: click-cast target restoration must run faster than the normal
+    -- Party roster population is intentionally processed outside the normal
+    -- 0.20s reconciliation cadence so one member can be populated per frame.
+    if SF.ProcessPartyRosterRefresh then SF:ProcessPartyRosterRefresh(arg1 or 0) end
+    if SF.ProcessPartyPowerUpdates then SF:ProcessPartyPowerUpdates(arg1 or 0) end
+    if SF.ProcessPartyPortraitUpdates then SF:ProcessPartyPortraitUpdates() end
+
+    -- click-cast target restoration must run faster than the normal
     -- 0.20s UI reconciliation cadence.
     if SF.ProcessClickTargetRestore then SF:ProcessClickTargetRestore() end
     reconcileElapsed=reconcileElapsed+(arg1 or 0)
     if reconcileElapsed<0.20 then return end
     reconcileElapsed=0
 
-    -- TEST38: a unit frame must sit above world/nameplate frames in normal
+    -- A unit frame must sit above world/nameplate frames in normal
     -- gameplay, but below managed Blizzard panels while those panels are open.
     -- Reconcile only when the desired strata actually changes.
     if SF.player and SF.GetUnitFrameStrata then
@@ -2691,7 +3376,8 @@ eventFrame:SetScript("OnUpdate",function()
         end
     end
 
-    if SF.player and SF.UpdateBlizzardPartyFrames then SF:UpdateBlizzardPartyFrames() end
+    -- Blizzard party-frame suppression is reconciled on roster/settings/world
+    -- events. Do not force Hide()/SetAlpha() on all four native frames here.
     PruneAuraTimingCache()
     if SF.player and (UnitExists("target") or SF.testMode) then SF:UpdateTargetOfTarget(); SF:UpdateAuras() end
 end)

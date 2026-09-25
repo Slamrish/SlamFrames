@@ -1,8 +1,8 @@
 ## Interface: 11200
 ## Title: SlamFrames
-## Notes: Custom unit, party, raid, cast, aura, click-cast, and healing frames for OctoWoW / Vanilla 1.12-style clients.
+## Notes: SlamFrames 3.1 - Party-frame performance overhaul, party resource bars, stable click casting, Raid Frames, heal prediction, and refined Light/Dark artwork.
 ## Author: Amrish + ChatGPT
-## Version: 3.0.0
+## Version: 3.1.0
 ## SavedVariables: SlamFramesDB, SlamFramesAccountDB
 ## SavedVariablesPerCharacter: SlamFramesCharacterDB
 ## OptionalDeps: HealComm

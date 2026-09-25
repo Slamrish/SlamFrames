@@ -152,7 +152,7 @@ local LIGHT_TINT_NAMES={
     "MainMenuBarLeftEndCap","MainMenuBarRightEndCap",
     "BonusActionBarTexture0","BonusActionBarTexture1",
 
-    -- TEST44: carry the same Light-theme warm gold tint down onto the
+    -- Carry the same Light-theme warm gold tint down onto the
     -- native experience-bar chrome so it matches the action bar and gryphons
     -- instead of retaining the neutral/dark grey treatment. Keep the actual
     -- XP StatusBar fill untouched; only the Blizzard decorative artwork and
@@ -200,7 +200,7 @@ local function ApplyNamedTint(show)
     end
 end
 
--- TEST45: OctoWoW can build/rebuild the small XP-bar seam/divider regions
+-- OctoWoW can build/rebuild the small XP-bar seam/divider regions
 -- after SlamFrames' initial skin pass (for example when the bar width/layout
 -- settles). That left a couple of native grey pieces visible inside an
 -- otherwise gold Light-theme XP bar. Reconcile the complete XP chrome by

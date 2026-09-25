@@ -1,4 +1,4 @@
--- SlamFrames v3.0.0 - stable release settings UI.
+-- SlamFrames v3.1.0
 -- OctoWoW / 1.12-era compatible: intentionally uses this/arg1 in handlers.
 
 local SF=SlamFrames
@@ -550,8 +550,10 @@ function SF:CreateSettingsPanel()
     pmain.toggle:SetScript("OnClick",function() SF:SetPartyFramesEnabled(not SlamFramesDB.showPartyFrames,true); SF:RefreshSettings() end)
     pmain.raid=MakeButton(pmain,"",220,24); pmain.raid:SetPoint("TOPRIGHT",pmain,"TOPRIGHT",-14,-43)
     pmain.raid:SetScript("OnClick",function() SF:SetPartyHideInRaid(not SlamFramesDB.partyHideInRaid,true); SF:RefreshSettings() end)
-    local ph1=MakeLabel(pmain,"When enabled, SlamFrames replaces Blizzard party1-party4 frames automatically.",10,WHITE_TEXT); ph1:SetPoint("TOPLEFT",pmain,"TOPLEFT",14,-79)
-    local ph2=MakeLabel(pmain,"Uses the compact Target-of-Target frame style for a clean four-member stack.",9,MUTED); ph2:SetPoint("TOPLEFT",pmain,"TOPLEFT",14,-99)
+    pmain.power=MakeButton(pmain,"",205,24); pmain.power:SetPoint("TOPLEFT",pmain,"TOPLEFT",14,-77)
+    pmain.power:SetScript("OnClick",function() SF:SetPartyPowerEnabled(not SlamFramesDB.showPartyPower,true); SF:RefreshSettings() end)
+    local ph1=MakeLabel(pmain,"Adds a slim mana / rage / energy strip without rebuilding the full Party Frame.",9,WHITE_TEXT); ph1:SetPoint("TOPLEFT",pmain,"TOPLEFT",234,-76); ph1:SetWidth(254)
+    local ph2=MakeLabel(pmain,"Resource events update only the affected member and are throttled for combat performance.",8,MUTED); ph2:SetPoint("TOPLEFT",pmain,"TOPLEFT",234,-98); ph2:SetWidth(254)
 
     local psize=MakeSection(ppage,"Size & Position",0,-138,246,190)
     f.partyScaleRow=AddScaleRow(psize,"Scale",-43,function() return SlamFramesDB.scales.party or .60 end,function(v,q) SF:SetFrameScale("party",v,q) end,.05)
@@ -965,6 +967,10 @@ function SF:RefreshSettings()
     if f.partyMain then
         f.partyMain.toggle:SetText("Party Frames: "..(SlamFramesDB.showPartyFrames and "ON" or "OFF"))
         f.partyMain.raid:SetText("Hide in Raid: "..(SlamFramesDB.partyHideInRaid and "ON" or "OFF"))
+        if f.partyMain.power then
+            f.partyMain.power:SetText("Resource Bar: "..(SlamFramesDB.showPartyPower and "ON" or "OFF"))
+            TintButton(f.partyMain.power,SlamFramesDB.showPartyPower and true or false)
+        end
     end
     if f.partyScaleRow and f.partyScaleRow.value then f.partyScaleRow.value:SetText(string.format("%.2f",SlamFramesDB.scales.party or .60)) end
     if f.partyWidthRow then f.partyWidthRow.value:SetText(tostring(SF.WidthPercent("party",C.party)).."%") end

@@ -1,4 +1,4 @@
--- SlamFrames TEST39 - isolated Vanilla/Octo cast timing ownership for spells, items, bandages, gathering and channels
+-- SlamFrames 3.1.0 - isolated Vanilla/Octo cast timing ownership for spells, items, bandages, gathering and channels
 -- Gold three-slice artwork, spell icon, cast/channel/fail states, latency zone,
 -- explicit old-client layout scaling, movement and preview controls.
 
@@ -178,7 +178,7 @@ local function QueryCast()
     return nil
 end
 
--- TEST39: Octo can leave the previous channel visible through C_Spell or the
+-- Octo can leave the previous channel visible through C_Spell or the
 -- hidden Blizzard CastingBarFrame after a bandage/channel has ended.  Never
 -- accept timing merely because a source says "something is casting"; prove
 -- that the state belongs to the cast SlamFrames is currently starting/showing.

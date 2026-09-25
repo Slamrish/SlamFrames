@@ -1,8 +1,8 @@
--- SlamFrames v3.0.0
+-- SlamFrames v3.1.0
 -- Stable visual geometry + true layout scaling + settings/status pass.
 
 SlamFrames_Config = {
-    version = "3.0.0",
+    version = "3.1.0",
     texturePath = "Interface\\AddOns\\SlamFrames\\Textures\\",
     levelBadgeTexture = "level_badge.tga",
     combatGlowTexture = "combat_glow.tga",
@@ -148,11 +148,9 @@ SlamFrames_Config = {
         healthValueOffset = -5,
     },
 
-    -- TEST43: compact party frames intentionally share the proven ToT artwork
-    -- and geometry. This gives the group frames the same visual language while
-    -- keeping them lightweight enough to stack four high. Party members use a
-    -- single health cavity in this first pass; resource bars can be added later
-    -- without changing the party-frame positioning/settings model.
+    -- Compact Party Frames share the proven ToT artwork and geometry. A thin
+    -- party-only resource strip overlays the bottom of the health cavity so
+    -- mana/rage/energy can be shown without increasing the frame footprint.
     party = {
         width = 260,
         height = 78,
@@ -169,6 +167,10 @@ SlamFrames_Config = {
             offsetY = 0.00,
         },
         health = { x = 74.5, y = 26.6, w = 178.5, h = 20.5 },
+        -- Party-only resource strip. Keep it as a distinct row immediately
+        -- below health; at the default 0.60 party scale this is a compact ~4px
+        -- bar and does not increase the outer Party Frame footprint.
+        power  = { x = 75.0, y = 19.2, w = 177.5, h = 7.0 },
         name = {
             x = 73, y = 47.0, w = 178, h = 22,
             font = 16,
@@ -185,6 +187,7 @@ SlamFrames_Config = {
         },
         healthPercentFont = 10,
         healthValueFont = 7,
+        powerFont = 7,
         healthPercentOffset = 4,
         healthValueOffset = -5,
     },

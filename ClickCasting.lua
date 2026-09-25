@@ -1,4 +1,4 @@
--- SlamFrames TEST50 - real Button OnClick dispatch + SuperWoW direct-unit click casting.
+-- SlamFrames v3.1.0
 -- Designed for OctoWoW / Vanilla 1.12-era APIs.
 -- Click casting is implemented natively in SlamFrames. HealBotBlue and Puppeteer
 -- were used as behavioral/reference sources for Vanilla click-targeting concepts.
@@ -48,10 +48,10 @@ local function MigrateLegacyBinding(src,defaultBase)
     if src.mode=="spell" then return NewBinding("spell",src.spell) end
     if src.mode=="base" then
         local base=src.base
-        -- TEST46 shipped Target/Menu/None as the initial party-frame defaults.
-        -- Convert those untouched defaults to NORMAL so TEST48's UI reflects
+        -- Earlier builds shipped Target/Menu/None as the initial party-frame defaults.
+        -- Convert those untouched defaults to NORMAL so the current UI reflects
         -- the simpler "leave it alone unless I override it" model.
-        if base==defaultBase then return NewBinding("normal",src.spell) end
+        if base==defaultBase then return NewBinding("normal","") end
         if base=="target" or base=="menu" or base=="none" then return NewBinding(base,src.spell) end
     end
     return NewBinding("normal",src.spell)
@@ -80,7 +80,7 @@ function SF:InitClickCastingDB()
 
     if type(SlamFramesDB.clickBindingSets)~="table" then
         SlamFramesDB.clickBindingSets={}
-        -- Migrate TEST46's flat bindings into the no-modifier layer.
+        -- Migrate older flat bindings into the no-modifier layer.
         local legacy=type(SlamFramesDB.clickBindings)=="table" and SlamFramesDB.clickBindings or {}
         SlamFramesDB.clickBindingSets.none={
             LeftButton=MigrateLegacyBinding(legacy.LeftButton,"target"),
@@ -129,12 +129,14 @@ end
 
 function SF:SetClickCastingEnabled(v,quiet)
     SlamFramesDB.clickCastingEnabled=v and true or false
+    if self.RefreshAllUnitClickButtons then self:RefreshAllUnitClickButtons() end
     if not quiet then Print("click casting "..(SlamFramesDB.clickCastingEnabled and "ON" or "OFF")) end
     if self.RefreshSettings then self:RefreshSettings() end
 end
 
 function SF:SetClickCastingApplyNormal(v,quiet)
     SlamFramesDB.clickCastingApplyNormal=v and true or false
+    if self.RefreshAllUnitClickButtons then self:RefreshAllUnitClickButtons() end
     if not quiet then Print("click casting on Player/Target/ToT "..(SlamFramesDB.clickCastingApplyNormal and "ON" or "OFF")) end
     if self.RefreshSettings then self:RefreshSettings() end
 end
@@ -148,6 +150,7 @@ end
 function SF:SetClickBindingAction(modifier,button,action,quiet)
     local b=self:GetClickBinding(modifier,button); if not b or not ValidAction(action) then return end
     b.action=action
+    if self.RefreshAllUnitClickButtons then self:RefreshAllUnitClickButtons() end
     if not quiet then Print((MODIFIER_LABELS[modifier] or modifier).." + "..(BUTTON_LABELS[button] or button)..": "..(ACTION_LABELS[action] or action)) end
     if self.RefreshSettings then self:RefreshSettings() end
 end
@@ -166,6 +169,7 @@ function SF:SetClickSpell(modifier,button,spell,quiet)
     end
     local b=self:GetClickBinding(modifier,button); if not b then return end
     b.spell=Trim(spell)
+    if self.RefreshAllUnitClickButtons then self:RefreshAllUnitClickButtons() end
     if not quiet then
         if b.spell=="" then Print((MODIFIER_LABELS[modifier] or modifier).." + "..(BUTTON_LABELS[button] or button).." spell cleared")
         else Print((MODIFIER_LABELS[modifier] or modifier).." + "..(BUTTON_LABELS[button] or button).." spell: "..b.spell) end
@@ -333,7 +337,7 @@ function SF:CastClickSpell(spell,unit)
         return false
     end
 
-    -- TEST50: use the same execution model as current Vanilla healer frames.
+    -- Use the same execution model as current Vanilla healer frames.
     -- On SuperWoW, CastSpellByName accepts the unit token as its second
     -- argument, so no temporary target is required at all.
     if HasSuperWoWDirectUnitCast() then
@@ -485,20 +489,43 @@ function SF:TargetClickUnit(frame)
 end
 
 function SF:RunNormalFrameClick(frame,button)
-    if not frame then return true end
+    if not frame or not frame.unit then return true end
+    local unit=frame.unit
+
+    -- Match Blizzard 1.12 unit-frame behavior before doing the normal action.
     if button=="RightButton" then
-        if self.UnitMenuForFrame then self:UnitMenuForFrame(frame) end
+        if type(SpellIsTargeting)=="function" and SpellIsTargeting() then
+            if type(SpellStopTargeting)=="function" then SpellStopTargeting() end
+            return true
+        end
+        ClickDebug("NORMAL right-click -> "..tostring(frame.frameKey).." / "..tostring(unit))
+        if self.UnitMenuForFrame then
+            local ok=self:UnitMenuForFrame(frame)
+            ClickDebug("unit menu dispatched: "..tostring(ok))
+        end
         return true
     elseif button=="LeftButton" then
-        -- Preserve SlamFrames' existing behavior exactly when a binding is
-        -- set to NORMAL: party left-click targets; Player left-click targets
-        -- self only when the existing Self Target option is enabled; Target
-        -- and ToT left-click remain unchanged/no-op.
-        if frame.frameKey=="party" or frame.frameKey=="raid" then return self:TargetClickUnit(frame) end
-        if frame.frameKey=="player" and SlamFramesDB.selfTargetOnClick then return self:TargetClickUnit(frame) end
+        if not UnitExists(unit) then return true end
+        if type(SpellIsTargeting)=="function" and SpellIsTargeting() and type(SpellTargetUnit)=="function" then
+            SpellTargetUnit(unit)
+            return true
+        end
+        if type(CursorHasItem)=="function" and CursorHasItem() then
+            if frame.frameKey=="player" and type(AutoEquipCursorItem)=="function" then
+                AutoEquipCursorItem()
+            elseif type(DropItemOnUnit)=="function" then
+                DropItemOnUnit(unit)
+            end
+            return true
+        end
+
+        -- The stock TargetFrame already represents the current target, so a
+        -- plain left-click does not need to retarget. Every other unit frame
+        -- targets its displayed unit, including Player (self), Party, Raid and
+        -- Target-of-Target.
+        if frame.frameKey~="target" then return self:TargetClickUnit(frame) end
         return true
     end
-    -- Middle click has no stock SlamFrames action.
     return true
 end
 
@@ -537,7 +564,7 @@ function SF:HandleUnitFrameClick(frame,button)
     if button~="LeftButton" and button~="RightButton" and button~="MiddleButton" then return false end
 
     local modifier=self:GetActiveClickModifier()
-    -- TEST48 intentionally exposes only the three individual modifiers. If
+    -- The UI intentionally exposes only the three individual modifiers. If
     -- multiple modifiers are held simultaneously, use normal frame behavior
     -- instead of guessing which healing binding the player intended.
     if modifier=="multi" then return self:RunNormalFrameClick(frame,button) end
@@ -628,10 +655,121 @@ function SF:EnsureUnitClickButton(frame)
     return b
 end
 
+local SECURE_BUTTON_SUFFIX = {LeftButton="1",RightButton="2",MiddleButton="3"}
+local SECURE_MOD_PREFIX = {none="",shift="shift-",ctrl="ctrl-",alt="alt-"}
+local SECURE_MULTI_PREFIXES = {"alt-ctrl-","alt-shift-","ctrl-shift-","alt-ctrl-shift-"}
+
+local function SetClickAttribute(button,name,value)
+    if not button or type(button.SetAttribute)~="function" then return false end
+    if value==nil and type(button.ClearAttribute)=="function" then
+        button:ClearAttribute(name)
+    else
+        button:SetAttribute(name,value)
+    end
+    return true
+end
+
+local function SecureActionForBinding(binding,mouseButton)
+    local action=(binding and binding.action) or "normal"
+    local payload=(binding and Trim(binding.spell)) or ""
+
+    if action=="normal" then
+        if mouseButton=="LeftButton" then return "target",nil,nil end
+        if mouseButton=="RightButton" then return "menu",nil,nil end
+        -- Vanilla has no normal middle-click unit-frame action. Use an empty
+        -- macro so the secure dispatcher owns the click and does nothing.
+        return "macro","macrotext",""
+    elseif action=="target" then
+        return "target",nil,nil
+    elseif action=="menu" then
+        return "menu",nil,nil
+    elseif action=="spell" and payload~="" then
+        return "spell","spell",payload
+    elseif action=="item" and payload~="" then
+        return "item","item",payload
+    end
+
+    -- Disabled or an incomplete spell/item binding: consume the hardware click
+    -- without falling through to an unmodified type1/type2 action.
+    return "macro","macrotext",""
+end
+
+function SF:ApplySecureClickAttributes(frame)
+    if not frame or not frame.sfClickButton then return false end
+    local button=frame.sfClickButton
+    if type(button.SetAttribute)~="function" then
+        frame.sfSecureClickActive=false
+        return false
+    end
+
+    SetClickAttribute(button,"unit",frame.unit)
+
+    local useBindings=self:FrameUsesClickCasting(frame)
+    local modifiers={"none","shift","ctrl","alt"}
+    local mouseButtons={"LeftButton","RightButton","MiddleButton"}
+    local mi,bi
+    for mi=1,table.getn(modifiers) do
+        local mod=modifiers[mi]
+        local prefix=SECURE_MOD_PREFIX[mod]
+        for bi=1,table.getn(mouseButtons) do
+            local mouseButton=mouseButtons[bi]
+            local suffix=SECURE_BUTTON_SUFFIX[mouseButton]
+            local binding=nil
+            if useBindings then binding=self:GetClickBinding(mod,mouseButton) end
+            local verb,extraName,extraValue=SecureActionForBinding(binding,mouseButton)
+            SetClickAttribute(button,prefix.."type"..suffix,verb)
+            SetClickAttribute(button,prefix.."spell"..suffix,nil)
+            SetClickAttribute(button,prefix.."item"..suffix,nil)
+            SetClickAttribute(button,prefix.."macrotext"..suffix,nil)
+            if extraName then SetClickAttribute(button,prefix..extraName..suffix,extraValue) end
+        end
+    end
+
+    -- SlamFrames intentionally treats two or more held modifiers as normal
+    -- frame behavior. ClassicAPI builds modifier prefixes in alt/ctrl/shift
+    -- order, so explicitly override every multi-modifier combination instead
+    -- of allowing it to fall back to the no-modifier healing binding.
+    local pi
+    for pi=1,table.getn(SECURE_MULTI_PREFIXES) do
+        local prefix=SECURE_MULTI_PREFIXES[pi]
+        for bi=1,table.getn(mouseButtons) do
+            local mouseButton=mouseButtons[bi]
+            local suffix=SECURE_BUTTON_SUFFIX[mouseButton]
+            local verb,extraName,extraValue=SecureActionForBinding(nil,mouseButton)
+            SetClickAttribute(button,prefix.."type"..suffix,verb)
+            SetClickAttribute(button,prefix.."spell"..suffix,nil)
+            SetClickAttribute(button,prefix.."item"..suffix,nil)
+            SetClickAttribute(button,prefix.."macrotext"..suffix,nil)
+            if extraName then SetClickAttribute(button,prefix..extraName..suffix,extraValue) end
+        end
+    end
+
+    frame.sfSecureClickActive=true
+    return true
+end
+
+function SF:RefreshAllUnitClickButtons()
+    local frames={self.player,self.target,self.tot}
+    local i
+    if self.partyFrames then for i=1,table.getn(self.partyFrames) do table.insert(frames,self.partyFrames[i]) end end
+    if self.raidFrames then for i=1,table.getn(self.raidFrames) do table.insert(frames,self.raidFrames[i]) end end
+    for i=1,table.getn(frames) do
+        if frames[i] and frames[i].sfClickButton then self:RefreshUnitClickButton(frames[i]) end
+    end
+end
+
 function SF:RefreshUnitClickButton(frame)
     if not frame then return end
     local b=frame.sfClickButton
     if not b then return end
+
+    -- Current OctoWoW/ClassicAPI unit frames use SetAttribute("unit")
+    -- plus type1/type2 secure actions. This runs before the addon OnClick and
+    -- owns configured clicks, which is required for the client's native menu
+    -- action. The existing Lua dispatcher remains as a fallback for older
+    -- clients without ClassicAPI's SetAttribute backport.
+    self:ApplySecureClickAttributes(frame)
+
     -- Locked = interactive unit frame. Unlocked = parent owns the mouse so the
     -- player can drag/scale frames without accidentally casting.
     b:EnableMouse(SlamFramesDB and SlamFramesDB.locked and true or false)

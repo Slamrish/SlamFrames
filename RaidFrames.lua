@@ -1,4 +1,4 @@
--- SlamFrames TEST59 - Adds adjustable raid-frame opacity for low-obstruction DPS layouts.
+-- SlamFrames 3.1.0 - Raid frames, compact layouts, opacity, click casting, and healing support.
 -- Conservative Vanilla/OctoWoW module: lazy frame creation avoids touching
 -- the 40-player raid grid during addon startup.
 
@@ -985,7 +985,7 @@ function SF:UpdateRaidFrames()
 
     local raidCount = GetRaidCount()
 
-    -- TEST54: do not instantiate 40 unit frames during addon startup when the
+    -- Do not instantiate 40 unit frames during addon startup when the
     -- player is not in a raid. They are created only for Test Frames or a live raid.
     if raidCount <= 0 then
         HideRaidFrames()

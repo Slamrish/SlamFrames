@@ -1,25 +1,26 @@
-# SlamFrames 3.0
+# SlamFrames 3.1
 
-SlamFrames 3.0 promotes the current tested OctoWoW build to a stable release.
+SlamFrames 3.1 is the current stable release for OctoWoW / Vanilla 1.12-style clients.
 
-## Major additions since 2.5
+## Highlights
 
-- Full Party and Raid frame systems.
-- Compact raid-healing layout with multiple group orientations.
-- Raid class-colored names, main-tank markers, debuff previews/glow sizing, opacity, spacing controls, and Light/Dark compact artwork.
-- Click casting across supported group frames.
-- Per-character profiles.
-- Dedicated 4K / 1080 artwork packs with corrected power-of-two 1080 textures for Vanilla compatibility.
-- HealComm bridge diagnostics and predictive healing integration.
-- Optional suppression of Blizzard red error text while retaining SlamFrames cast-failure feedback.
-- Unified bright-red settings controls and settings UI cleanup.
+- Major Party Frame performance overhaul to reduce combat and group-join hitching.
+- Party health, aura, and resource traffic now updates only the affected member/subsystem instead of rebuilding all Party Frames.
+- Party roster bursts are coalesced and initial Party Frame population is staggered across rendered frames.
+- Circular party portraits are populated incrementally to reduce the large one-frame cost when joining a group.
+- Added optional Party-only Mana, Rage, Energy, and Focus resource bars.
+- Added **Party -> Resource Bar** toggle and `/sf partypower on/off`.
+- Preserves the stable 3.0.1 Normal click/right-click menu fix.
+- Preserves the 3.0.2 blank click-casting defaults and refined Ornate cast-bar artwork.
 
-## GitHub release
+## Installation
 
-Tag: `v3.0.0`  
-Title: `SlamFrames 3.0`  
-Release asset: `SlamFrames-v3.0.0.zip`
+Use the packaged release asset `SlamFrames-v3.1.0.zip`. Completely replace the existing `Interface\AddOns\SlamFrames` folder rather than merging versions. SavedVariables are stored separately.
 
-### Installation
+The 3.1.0 release ZIP is a complete standalone addon package and does not require any previous SlamFrames installation.
 
-Download the release asset, extract it, and place the included `SlamFrames` folder directly in `Interface\AddOns\`. The ZIP is intentionally packaged so `SlamFrames.toc` is exactly one folder below the archive root.
+## GitHub Release
+
+Tag: `3.1`  
+Release name: `SlamFrames 3.1 — Party Performance & Resource Bars`  
+Asset: `SlamFrames-v3.1.0.zip`

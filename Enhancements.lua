@@ -540,7 +540,7 @@ if OriginalCreateSettingsPanel then
         -- this additional section rather than crowding the existing controls.
         if f.pages and f.pages.castbar and not f.castbarFlavor then
             local page=f.pages.castbar
-            local flavor=MakeCompatSection(page,"Ornate Flavor Text",0,-556,504,178)
+            local flavor=MakeCompatSection(page,"Ornate Flavor Text",0,-648,504,178)
             flavor.toggle=MakeCompatButton(flavor,"Flavor Text: ON",205,24)
             flavor.toggle:SetPoint("TOPLEFT",flavor,"TOPLEFT",14,-43)
             flavor.toggle:SetScript("OnClick",function()
@@ -572,10 +572,10 @@ if OriginalCreateSettingsPanel then
             end)
 
             f.castbarFlavor=flavor
-            page:SetHeight(744)
+            page:SetHeight(860)
             if f.pageSliders and f.pageSliders.castbar then
                 local slider=f.pageSliders.castbar
-                local maxScroll=196
+                local maxScroll=312
                 slider.sfMaxScroll=maxScroll
                 slider:SetMinMaxValues(0,maxScroll)
                 slider:SetValue(maxScroll)
