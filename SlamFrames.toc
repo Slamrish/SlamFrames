@@ -1,8 +1,8 @@
 ## Interface: 11200
 ## Title: SlamFrames
-## Notes: SlamFrames 3.1 - Party-frame performance overhaul, party resource bars, stable click casting, Raid Frames, heal prediction, and refined Light/Dark artwork.
+## Notes: Custom Player, Target, Pet, Focus, Party and Raid frames with combo points, click casting, and Light/Dark artwork for Vanilla clients.
 ## Author: Amrish + ChatGPT
-## Version: 3.1.0
+## Version: 3.3
 ## SavedVariables: SlamFramesDB, SlamFramesAccountDB
 ## SavedVariablesPerCharacter: SlamFramesCharacterDB
 ## OptionalDeps: HealComm
@@ -10,6 +10,8 @@
 Config.lua
 StatusBar.lua
 SlamFrames.lua
+ComboPoints.lua
+FocusFrame.lua
 RaidFrames.lua
 ClickCasting.lua
 AuraRefreshFix.lua

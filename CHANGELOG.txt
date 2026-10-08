@@ -1,3 +1,32 @@
+SlamFrames v3.3
+
+- Added Rogue/Druid Player combo-point tracker with Normal, Rare/Elite and Boss visuals for Light and Dark skins.
+- Added an independently controlled Target combo arc attached to the Target portrait.
+- Corrected Light/Dark combo activation and refined Light Boss gem alignment.
+- Added Focus health-bar dark backing and aligned Light/Dark Focus fill and depletion geometry.
+- Fixed fresh-character click-cast defaults so all actions are Normal with empty spell/item fields.
+- Improved cleanup of target-dependent world-object cast text.
+- Clarified Player/Target combo settings, controls and scale relationships.
+- Preserved the V1 and Ornate cast-bar styles.
+
+SlamFrames v3.2
+
+- Added a dedicated Hunter / Warlock Pet Frame with independent scale, width, position, and portrait zoom.
+- Added Hunter happiness status icon controls for scale, Portrait / Health Left / Health Right placement, and adjustable side distance.
+- Added optional Hunter pet happiness warnings, urgent Red treatment, and taskbar/window flash when supported.
+- Added a green pet feeding glow while Feed Pet Effect is active.
+- Added a portraitless Focus Frame with dedicated Light and Dark artwork.
+- Added Focus movement, scale, width, height, health-format, name-size, and health-text-size controls.
+- Added native Focus support when exposed by the client and Vanilla/SuperWoW focus emulation using GUID/name resolution fallbacks.
+- Added /sf focus, /sf focus <name>, /sf clearfocus, /sfocus, and /sfclearfocus commands.
+- Focus names now constrain to the center cavity and shorten with an ellipsis instead of spilling into decorative artwork.
+- Focus health-fill geometry now maps directly to the actual Light/Dark artwork cavity for correct edge alignment.
+- Rebuilt the settings window with a clean charcoal/gold SlamFrames shell, icon navigation, dedicated Pet/Focus pages, unified button styling, and improved scroll handling.
+- Moved settings quick actions into a clean horizontal footer layout and retained dynamic version text outside artwork assets.
+- Fixed minimap launcher initialization after Focus-frame creation.
+- Cleaned up Vanilla world-object casts so Opening / No Message normalizes to Using and no longer leaks the selected target into Flavor Text.
+- Preserved the 3.1 Party Frame performance overhaul, Party resource bars, Raid/Compact Raid systems, click casting, heal prediction, and cast-bar refinements.
+
 SlamFrames v3.1.0
 
 - Reworked Party Frame event handling to prevent full-frame rebuilds during routine health, aura, and resource traffic.

@@ -89,6 +89,49 @@ local function CleanTooltipLabel(text)
     return text
 end
 
+-- Old Vanilla/Octo quest-object interactions can hand the cast bar a complete
+-- flavor sentence instead of a real spell name, for example:
+--   "Casting <quest action> on <currently selected target>..."
+-- Keep known profession/utility activities readable, but collapse unknown
+-- targeted interaction sentences to the generic "Using" label.
+local function LegacyTargetedFlavorAction(name)
+    if type(name)~="string" or name=="" then return nil end
+    local low=string.lower(name)
+    local prefixes={"casting","using","opening","channeling"}
+    local i,prefix,a,b,action
+    for i=1,table.getn(prefixes) do
+        prefix=prefixes[i]
+        a,b=string.find(low,"^"..prefix.."%s+.+%s+on%s+.+")
+        if a then
+            local lead=string.len(prefix)+2
+            local onStart=string.find(low,"%s+on%s+",lead)
+            if onStart then
+                action=string.sub(name,lead,onStart-1)
+                action=string.gsub(action,"^%s+","")
+                action=string.gsub(action,"%s+$","")
+                if action~="" then return action end
+                return true
+            end
+        end
+    end
+    return nil
+end
+
+local function IsCleanActivityAction(action)
+    if type(action)~="string" then return false end
+    local low=string.lower(action)
+    local keys={
+        "mining","smelt","herbal","herb gathering","skinning","fishing","cooking",
+        "alchemy","blacksmith","engineering","leatherwork","tailor","enchant",
+        "first aid","bandage","pick lock","lockpicking"
+    }
+    local i
+    for i=1,table.getn(keys) do
+        if string.find(low,keys[i],1,true) then return true end
+    end
+    return false
+end
+
 function CI:RememberTooltip(text)
     text=CleanTooltipLabel(text)
     if not text then return end
@@ -107,6 +150,23 @@ end
 function CI:ResolveDisplayName(name,isChannel)
     if type(name)=="string" then name=CleanTooltipLabel(name) end
     local low=name and string.lower(name) or ""
+
+    local flavorAction=LegacyTargetedFlavorAction(name)
+    if flavorAction then
+        if type(flavorAction)=="string" and IsCleanActivityAction(flavorAction) then
+            return flavorAction
+        end
+        return "Using"
+    end
+
+    -- Old-client object interactions can report "Opening - No Message" as if
+    -- it were a real spell. Keep the cast bar consistent with SlamFrames'
+    -- Mining/Fishing/Crafting cleanup and present the action simply as Using.
+    if low=="open" or low=="opening" or low=="using"
+        or string.sub(low,1,8)=="opening " or string.sub(low,1,6)=="open -" then
+        return "Using"
+    end
+
     local generic=(not name or name=="" or low=="casting" or low=="channeling" or low=="unknown")
     if not generic then return name end
 
@@ -114,8 +174,8 @@ function CI:ResolveDisplayName(name,isChannel)
     -- Cache the world tooltip just before the click so we can show useful
     -- labels such as "Opening Barrel" rather than a blank cast bar.
     local object=self:RecentTooltip(1.50)
-    if object and object~="" then return "Opening "..object end
-    return isChannel and "Channeling" or "Opening"
+    if object and object~="" then return "Using "..object end
+    return isChannel and "Channeling" or "Using"
 end
 
 function CI:InstallTooltipWatcher()

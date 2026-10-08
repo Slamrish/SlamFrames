@@ -80,15 +80,20 @@ local function Asset(kind)
     local file=ORNATE_ASSETS[kind]
     if not file then return nil end
 
-    -- Match Style 1's theme behavior: only the decorative metal/frame pieces
-    -- change with Light/Dark. The progress fill, dark bar interior treatment,
-    -- latency colors, and cast text remain visually identical in both themes.
-    if kind=="frame" or kind=="icon" then
-        if SkinName()=="dark" then return TEX.."Dark\\"..file end
-        return TEX..file
+    local root=TEX
+    if SF.GetArtResolution and SF:GetArtResolution()=="4kcompat" then
+        root=TEX.."1080\\"
     end
 
-    return TEX..file
+    -- Match the other styles' theme behavior: only the decorative metal/frame pieces
+    -- change with Light/Dark. Compatibility mode routes the entire Ornate
+    -- texture set through the <=512px 1080 copies while retaining 4K geometry.
+    if kind=="frame" or kind=="icon" then
+        if SkinName()=="dark" then return root.."Dark\\"..file end
+        return root..file
+    end
+
+    return root..file
 end
 
 local function IsGenericCastName(name)
@@ -196,14 +201,20 @@ local function DetectCastActivity(spellName)
     if low=="mining" or string.find(low,"mining",1,true) then return "Mining" end
     if low=="cooking" then return "Cooking" end
 
+    -- World/quest object interactions are activities, not targeted spells.
+    -- This catches both the cleaned "Using" label and raw Octo strings such as
+    -- "Opening - No Message", ensuring the selected unit is never appended.
+    if (SF.IsObjectUseCastDisplayName and SF.IsObjectUseCastDisplayName(spellName))
+        or low=="using" or string.sub(low,1,6)=="using " then
+        return "Using"
+    end
+
     local tradeActivity=CurrentTradeSkillActivity()
     -- Prefer the engine's explicit tradeskill flag. On older clients that do
     -- not expose it, match the active recipe against the current cast name.
     if IsTradeSkillCast() then return tradeActivity or "Crafting" end
     if tradeActivity and SelectedProfessionRecipeMatches(spellName) then return tradeActivity end
 
-    -- Object-use fallback should never inherit the selected unit as a target.
-    if low=="using" or low=="open" or low=="opening" then return "Using" end
     return nil
 end
 

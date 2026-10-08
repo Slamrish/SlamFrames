@@ -301,7 +301,7 @@ function SF:LayoutCastBar()
     -- The ornate skin has substantially heavier endcaps.  Slightly shorten its
     -- straight body so it matches the compact concept image rather than looking
     -- like Style 1 with larger decorations bolted onto the ends.
-    local defaultWidthFactor = (styleNumber == 2) and 0.92 or 1.00
+    local defaultWidthFactor = (styleNumber == 3) and 0.92 or 1.00
     local widthFactor = style.bodyWidthFactor or defaultWidthFactor
     local bodyW = Clamp(SlamFramesDB.castbarWidth or 360, 260, 540) * scale * widthFactor
     local bodyH = (style.bodyHeight or CB.bodyHeight or 52) * scale
@@ -326,6 +326,7 @@ function SF:LayoutCastBar()
 
     local borderFile = style.iconBorderTexture or "aura_border.tga"
     cb.iconBorder:SetTexture((SF.GetSkinTexture and SF:GetSkinTexture(borderFile)) or (TEX .. borderFile))
+    cb.fill:SetTexture(TEX .. (CB.fillTexture or "cast_fill.tga"))
     cb.latency:SetTexture(TEX .. (style.latencyTexture or CB.latencyTexture or "cast_latency.tga"))
     cb.latency:SetAlpha(style.latencyAlpha or 0.90)
     cb:SetWidth(totalW)
@@ -411,8 +412,8 @@ function SF:SetCastBarStyle(v, quiet)
     local n
     if type(v) == "string" then
         local s = string.lower(v)
-        if s == "ornate" or s == "gold" or s == "ornategold" or s == "2" then n = 2
-        elseif s == "classic" or s == "standard" or s == "1" then n = 1 end
+        if s == "v1" or s == "classic" or s == "standard" or s == "1" then n = 1
+        elseif s == "ornate" or s == "gold" or s == "ornategold" or s == "2" then n = 2 end
     else
         n = tonumber(v)
     end
@@ -423,13 +424,13 @@ function SF:SetCastBarStyle(v, quiet)
     self:LayoutCastBar()
     if self.RefreshSettings then self:RefreshSettings() end
     if not quiet and self.Print then
-        self.Print("cast bar skin set to " .. ((n == 2) and "Ornate" or "Classic") .. ".")
+        self.Print("cast bar skin set to " .. self:GetCastBarStyleName() .. ".")
     end
     return true
 end
 
 function SF:GetCastBarStyleName()
-    return (tonumber(SlamFramesDB and SlamFramesDB.castbarStyle) == 2) and "Ornate" or "Classic"
+    return (tonumber(SlamFramesDB and SlamFramesDB.castbarStyle) == 2) and "Ornate" or "V1"
 end
 
 -- ---------------------------------------------------------------------------
@@ -438,28 +439,42 @@ end
 
 local function TintCompatButton(b, selected)
     if not b then return end
-    local normal = b.GetNormalTexture and b:GetNormalTexture() or nil
-    local pushed = b.GetPushedTexture and b:GetPushedTexture() or nil
-    local disabled = b.GetDisabledTexture and b:GetDisabledTexture() or nil
-    local highlight = b.GetHighlightTexture and b:GetHighlightTexture() or nil
-    if normal and normal.SetVertexColor then
-        if selected then normal:SetVertexColor(0.82, 0.15, 0.08) else normal:SetVertexColor(0.72, 0.12, 0.07) end
+    b.sfSelected=selected and true or false
+    if b.SetBackdropColor then
+        if selected then b:SetBackdropColor(0.17,0.12,0.035,0.98) else b:SetBackdropColor(0.05,0.055,0.055,0.97) end
     end
-    if pushed and pushed.SetVertexColor then pushed:SetVertexColor(0.60, 0.08, 0.05) end
-    if disabled and disabled.SetVertexColor then
-        if selected then disabled:SetVertexColor(0.82, 0.15, 0.08) else disabled:SetVertexColor(0.62, 0.10, 0.06) end
+    local r,g,bl,a=0.82,0.61,0.20,0.72
+    if selected then r,g,bl,a=1.00,0.82,0.38,1 end
+    if b.sfTop then
+        b.sfTop:SetVertexColor(r,g,bl,a); b.sfBottom:SetVertexColor(r,g,bl,a); b.sfLeft:SetVertexColor(r,g,bl,a); b.sfRight:SetVertexColor(r,g,bl,a)
     end
-    if highlight and highlight.SetVertexColor then highlight:SetVertexColor(1.00, 0.22, 0.10) end
-    local fs = b.GetFontString and b:GetFontString() or nil
-    if fs then fs:SetTextColor(1.00, 0.82, 0.00) end
+    local fs=b.GetFontString and b:GetFontString() or nil
+    if fs then fs:SetTextColor(selected and 1.00 or .94, selected and .90 or .92, selected and .55 or .86) end
 end
 
 local function MakeCompatButton(parent, text, w, h)
-    local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    b:SetWidth(w or 90)
-    b:SetHeight(h or 22)
-    b:SetText(text or "")
-    TintCompatButton(b, false)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetWidth(w or 90); b:SetHeight(h or 22)
+    b:SetBackdrop({bgFile="Interface\\Tooltips\\UI-Tooltip-Background",tile=true,tileSize=8,insets={left=1,right=1,top=1,bottom=1}})
+    local function Edge(point1,point2,wid,hei)
+        local t=b:CreateTexture(nil,"OVERLAY"); t:SetTexture(WHITE); t:SetVertexColor(0.82,0.61,0.20,0.72)
+        t:SetPoint(point1,b,point1,0,0); if point2 then t:SetPoint(point2,b,point2,0,0) end
+        if wid then t:SetWidth(wid) end; if hei then t:SetHeight(hei) end; return t
+    end
+    b.sfTop=Edge("TOPLEFT","TOPRIGHT",nil,1); b.sfBottom=Edge("BOTTOMLEFT","BOTTOMRIGHT",nil,1)
+    b.sfLeft=Edge("TOPLEFT","BOTTOMLEFT",1,nil); b.sfRight=Edge("TOPRIGHT","BOTTOMRIGHT",1,nil)
+    b.text=b:CreateFontString(nil,"OVERLAY"); b.text:SetFont("Fonts\\FRIZQT__.TTF",10,"OUTLINE"); b.text:SetPoint("CENTER",b,"CENTER",0,0); b.text:SetText(text or "")
+    b.SetText=function(self,value) if self.text then self.text:SetText(value or "") end end
+    b.GetFontString=function(self) return self.text end
+    b:SetScript("OnEnter",function()
+        this:SetBackdropColor(0.13,0.10,0.035,0.98)
+        this.sfTop:SetVertexColor(1.00,0.82,0.38,1); this.sfBottom:SetVertexColor(1.00,0.82,0.38,1); this.sfLeft:SetVertexColor(1.00,0.82,0.38,1); this.sfRight:SetVertexColor(1.00,0.82,0.38,1)
+        if this.text then this.text:SetTextColor(1.00,0.90,0.55) end
+    end)
+    b:SetScript("OnLeave",function()
+        if this.sfSelected then TintCompatButton(this,true) else TintCompatButton(this,false) end
+    end)
+    TintCompatButton(b,false)
     return b
 end
 
@@ -514,10 +529,9 @@ if OriginalCreateSettingsPanel then
             f.generalInteraction.healPrediction = b
         end
 
-        -- Cast Bar has an unused right-hand slot opposite Latency Zone.  Use it
-        -- as a one-click skin selector: Classic <-> Ornate.
+        -- Two proven cast-bar skins only: V1 <-> Ornate.
         if f.castbarMain and not f.castbarMain.style then
-            local b = MakeCompatButton(f.castbarMain, "Cast Skin: Classic", 205, 24)
+            local b = MakeCompatButton(f.castbarMain, "Cast Skin: V1", 205, 24)
             b:SetPoint("TOPRIGHT", f.castbarMain, "TOPRIGHT", -14, -113)
             b:SetScript("OnClick", function()
                 SF:SetCastBarStyle((tonumber(SlamFramesDB.castbarStyle) == 2) and 1 or 2, true)
@@ -527,7 +541,7 @@ if OriginalCreateSettingsPanel then
             b:SetScript("OnEnter", function()
                 GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
                 GameTooltip:SetText("Cast Bar Skin", 1.0, 0.82, 0.0)
-                GameTooltip:AddLine("Classic = current SlamFrames cast bar.", 1, 1, 1, true)
+                GameTooltip:AddLine("V1 = the original SlamFrames cast bar.", 1, 1, 1, true)
                 GameTooltip:AddLine("Ornate = the heavier gold concept-art skin.", 1, 1, 1, true)
                 GameTooltip:Show()
             end)
@@ -573,16 +587,16 @@ if OriginalCreateSettingsPanel then
 
             f.castbarFlavor=flavor
             page:SetHeight(860)
+            local castScroll=f.pageScrolls and f.pageScrolls.castbar
             if f.pageSliders and f.pageSliders.castbar then
                 local slider=f.pageSliders.castbar
-                local maxScroll=312
+                local viewport=(castScroll and castScroll.GetHeight and castScroll:GetHeight()) or 472
+                local maxScroll=math.max(0,860-viewport)
                 slider.sfMaxScroll=maxScroll
                 slider:SetMinMaxValues(0,maxScroll)
-                slider:SetValue(maxScroll)
+                slider:SetValue(0)
             end
-            if f.pageScrolls and f.pageScrolls.castbar and f.pageScrolls.castbar.EnableMouseWheel then
-                f.pageScrolls.castbar:EnableMouseWheel(true)
-            end
+            if castScroll and castScroll.EnableMouseWheel then castScroll:EnableMouseWheel(true) end
         end
 
         if self.RefreshSettings then self:RefreshSettings() end
@@ -602,7 +616,7 @@ if OriginalRefreshSettings then
         end
         if f.castbarMain and f.castbarMain.style then
             local ornate = tonumber(SlamFramesDB.castbarStyle) == 2
-            f.castbarMain.style:SetText("Cast Skin: " .. (ornate and "Ornate" or "Classic"))
+            f.castbarMain.style:SetText("Cast Skin: " .. (ornate and "Ornate" or "V1"))
             TintCompatButton(f.castbarMain.style, ornate)
         end
         if f.castbarFlavor then
@@ -662,12 +676,12 @@ if OriginalHandleSlash then
                 local choice = string.lower(arg or "")
                 if choice == "" then
                     self:SetCastBarStyle((tonumber(SlamFramesDB.castbarStyle) == 2) and 1 or 2, false)
-                elseif choice == "1" or choice == "classic" or choice == "standard" then
+                elseif choice == "1" or choice == "v1" or choice == "classic" or choice == "standard" then
                     self:SetCastBarStyle(1, false)
                 elseif choice == "2" or choice == "ornate" or choice == "gold" or choice == "ornate gold" then
                     self:SetCastBarStyle(2, false)
                 elseif self.Print then
-                    self.Print("usage: /sf castbar style 1|2  (Classic | Ornate)")
+                    self.Print("usage: /sf castbar style 1|2  (V1 | Ornate)")
                 end
                 return
             end
@@ -680,11 +694,12 @@ end
 -- ---------------------------------------------------------------------------
 -- 6) INITIALIZATION / SAVED-VARIABLE COMPATIBILITY
 -- ---------------------------------------------------------------------------
--- SlamFrames 1.0 currently migrates every saved castbarStyle back to 1 during
--- DBInit.  Capture the SavedVariables value at ADDON_LOADED, then restore it on
--- the first PLAYER_ENTERING_WORLD after DBInit has completed.
+-- Preserve castbarStyle across old shared-profile migrations. Fresh
+-- profiles use the Calamus master default (Ornate) and are not forced back to
+-- Classic during PLAYER_ENTERING_WORLD.
 
 local savedCastbarStyle = nil
+local savedCastbarDBVersion = nil
 local styleRestored = false
 local init = CreateFrame("Frame", "SlamFrames_EnhancementsInit", UIParent)
 init:RegisterEvent("ADDON_LOADED")
@@ -696,7 +711,8 @@ init:SetScript("OnEvent", function()
     if ev == "ADDON_LOADED" then
         if arg1 == "SlamFrames" and SlamFramesDB then
             local n = tonumber(SlamFramesDB.castbarStyle)
-            if n == 1 or n == 2 then savedCastbarStyle = n end
+            savedCastbarDBVersion = tonumber(SlamFramesDB.dbVersion) or 0
+            if n == 1 or n == 2 or n == 3 then savedCastbarStyle = n end
         end
         return
     end
@@ -720,10 +736,24 @@ init:SetScript("OnEvent", function()
             if SlamFramesDB.castbarFlavorTextScale == nil then SlamFramesDB.castbarFlavorTextScale = 1.00 end
             if not styleRestored then
                 styleRestored = true
-                if savedCastbarStyle == 2 and CB.styles and CB.styles[2] then
+                local dbv = tonumber(savedCastbarDBVersion) or 0
+                if savedCastbarStyle == 3 then
+                    -- Intermediate versions stored Ornate in slot 3; restore it to slot 2.
                     SlamFramesDB.castbarStyle = 2
-                else
+                elseif savedCastbarStyle == 2 then
+                    if dbv >= 27 and dbv < 28 then
+                        -- Slot 2 was the temporary V2 only in the experimental builds.
+                        -- With V2 removed, fall back to V1 instead of silently
+                        -- selecting a different-looking cast bar.
+                        SlamFramesDB.castbarStyle = 1
+                    else
+                        -- Pre-experiment slot 2 was Ornate.
+                        SlamFramesDB.castbarStyle = 2
+                    end
+                elseif savedCastbarStyle == 1 then
                     SlamFramesDB.castbarStyle = 1
+                elseif tonumber(SlamFramesDB.castbarStyle) ~= 1 and tonumber(SlamFramesDB.castbarStyle) ~= 2 then
+                    SlamFramesDB.castbarStyle = 2
                 end
                 if SF.castbar then SF:LayoutCastBar() end
             end

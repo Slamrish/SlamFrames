@@ -1,105 +1,68 @@
-# SlamFrames
+# SlamFrames 3.3
 
-**SlamFrames 3.1** is a custom unit, party, and raid frame suite for **OctoWoW**, built for the Vanilla 1.12-style client environment.
+**Custom unit frames for OctoWoW and compatible Vanilla / WoW 1.12-style clients.**
 
-It replaces the default Player, Target, and Target-of-Target frames while adding configurable Party Frames, Raid Frames, Compact Raid Frames, click casting, predictive healing, custom cast bars, combat/resting effects, CC alerts, special Rare/Elite/Boss portrait frames, and Light/Dark skins.
+SlamFrames provides Player, Target, Target-of-Target, Pet, Focus, Party and Raid frames in matching Light and Dark themes, with configurable layouts and high-resolution artwork.
 
-## What Changed in 3.1
+## What's new in 3.3
 
-### Party Frame Performance Overhaul
+- **Rogue and Druid combo trackers:** five-point Player tracker with normal, Rare/Elite and Boss appearance variants; separate Target portrait arc, each with individual enable and size controls. Dark/Light themes preserve their distinct materials and socket layouts.
+- **Improved Focus Frame:** matched Light and Dark health-fill behavior, smooth depletion and a dark empty-health backing.
+- **Click-casting defaults:** new characters start with no spell/item bindings. All Left, Right and Middle Click assignments are Normal until configured; existing character assignments remain intact. `/sf clickreset` clears one character's click-cast bindings.
+- **Cleaner world-object casts:** legacy target-dependent interaction sentences are replaced by readable action text such as `Using`, while common professions retain their names.
+- **Refined settings:** dedicated Target combo controls and clearer Player X/Y offset labels.
+- **Cast bar choice:** V1 and Ornate, with no third cast-bar skin.
 
-Party Frames were reworked to avoid expensive full-frame rebuilds during normal combat and group roster changes.
+## Other features
 
-- Health events update only the affected party member.
-- Mana, Rage, Energy, and other resource events update only that member's resource bar.
-- Aura events update the relevant debuff alert instead of rebuilding portraits, names, levels, and healing data.
-- Repeated party-join roster events are coalesced into one refresh path.
-- Initial party population is staggered instead of rebuilding all four members at once.
-- Circular portrait slices are populated incrementally to reduce the hitch when joining a party.
-- Blizzard party-frame suppression is no longer forced repeatedly during the normal UI reconciliation loop.
+- Movable, independently sized Player, Target, Target-of-Target, Pet and Focus frames
+- Party and Raid frames, including Compact Raid layouts and 5/10/15/20/40-player groups
+- Click casting for spells and usable items with Shift, Ctrl and Alt modifiers
+- Incoming-heal prediction and HealComm-compatible integration
+- Class-color text, Main Tank indicators, Raid debuff notifications and party resources
+- Configurable buffs/debuffs and numeric aura durations
+- Rare/Elite/Boss frame artwork, combat highlights, CC indicators and resting effect
+- Adjustable cast bar timers, icon, latency zone, casting/channel support and interruption reporting
+- Light and Dark art with dedicated 1080p and 4K texture options
+- Per-character settings and in-game **Test Frames** preview mode
 
-These changes substantially reduce the combat and party-join stalls that could occur with Party Frames enabled.
+## Install
 
-### Party Resource Bars
+1. Exit World of Warcraft completely.
+2. Extract `SlamFrames-3.3.zip`.
+3. Copy the **SlamFrames** folder into your game's `Interface\AddOns` directory.
+4. Confirm this exact file exists:
 
-Party Frames can now display a compact resource bar for Mana, Rage, Energy, and Focus.
+   ```text
+   World of Warcraft\Interface\AddOns\SlamFrames\SlamFrames.toc
+   ```
 
-- Enabled by default on fresh installs.
-- Can be toggled from **Settings -> Party -> Resource Bar**.
-- Can also be toggled with `/sf partypower on` or `/sf partypower off`.
-- Resource traffic is isolated from the expensive Party Frame identity/portrait update path.
+5. Start the game and enable SlamFrames in the AddOns list (if necessary).
+6. Type `/sf settings` to configure it. Set your artwork resolution to **1080**, **4K**, or **4K Compatible** as appropriate, then `/reload` when changing art modes.
 
-### Includes the 3.0.1 / 3.0.2 Hotfixes
+The archive includes all necessary SlamFrames code and textures; it **does not require an earlier SlamFrames installation**. SuperWoW, Nampower and HealComm-compatible integrations are used where supported by your client; they are not bundled.
 
-- Normal left/right unit-frame behavior and Vanilla-compatible right-click menus.
-- Blank factory/reset click-casting spell/item fields.
-- Refined Ornate cast-bar Light/Dark artwork.
-- Removal of the unwanted Ornate cast-bar internal guide/divider lines.
-- Cast Bar settings-page spacing cleanup.
+### Upgrading
 
-## Major Features
+Delete or move your **old `Interface\AddOns\SlamFrames` folder** first, then copy in the new one. **Do not merge the folders**, as leftover files may cause problems. Your existing game SavedVariables are stored separately from the addon folder and should be preserved; backing up your WTF folder is still recommended.
 
-- Custom Player, Target, and Target-of-Target frames
-- Party Frames with optional Mana/Rage/Energy/Focus resource bars
-- 5/10/15/20/40-player Raid Frames
-- Standard and Compact Raid layouts
-- Multiple raid group arrangements
-- Click casting for spells and usable items
-- HealComm-compatible incoming-heal prediction plus local fallback
-- Main Tank indicators
-- Per-character settings
-- 4K and dedicated 1080p artwork modes
-- Light and Dark skins
-- Custom Classic and Ornate cast bars
-- Cast timers, spell/item icons, latency display, pushback, channels, failures, professions, gathering, bandages, and world interactions
-- Target aura timers and Nampower refresh reconciliation
-- Rare/Elite/Boss portrait decorations
-- Combat glow, resting Zzz, CC alerts, minimap launcher, and Test Frames
+### Useful commands
+
+| Command | Action |
+|---|---|
+| `/sf settings` | Open SlamFrames settings |
+| `/sf lock` / `/sf unlock` | Lock or unlock frame positioning |
+| `/sf focus` | Focus current target |
+| `/sf clearfocus` | Clear the Focus Frame |
+| `/sf clickreset` | Reset click-cast bindings for the current character |
+| `/sf partypower on` / `/sf partypower off` | Toggle Party resource bars |
 
 ## Compatibility
 
-SlamFrames is developed specifically for:
+Built for **OctoWoW / Vanilla 1.12-style clients**. This is not a Retail or modern Classic addon. Some advanced capabilities require compatible client extensions.
 
-- OctoWoW
-- Vanilla / WoW 1.12-style APIs
-- SuperWoW-compatible environments
-- Nampower-enhanced APIs when available
+## Source
 
-It is **not** intended for Retail WoW or modern Classic clients.
+https://github.com/Slamrish/SlamFrames
 
-## Fresh Installation
-
-1. Close World of Warcraft.
-2. Extract `SlamFrames-v3.1.0.zip`.
-3. Place the included `SlamFrames` folder inside `Interface\AddOns\`.
-4. Confirm the final path is `Interface\AddOns\SlamFrames\SlamFrames.toc`.
-5. Launch OctoWoW and make sure SlamFrames is enabled.
-6. Open settings with `/sf settings`.
-
-The release ZIP is complete and does not require files from any previous SlamFrames version.
-
-## Updating
-
-For the cleanest update, delete or move the old `Interface\AddOns\SlamFrames` folder and replace it with the folder from the new ZIP. Do not merge old and new addon folders.
-
-SavedVariables are stored separately, so normal upgrades preserve existing character settings.
-
-## Useful Commands
-
-```text
-/sf settings
-/sf lock
-/sf unlock
-/sf partypower on
-/sf partypower off
-/sf healpredict status
-/sf healpredict test 2000
-```
-
-## Current Stable Release
-
-**SlamFrames 3.1.0**
-
-## Credits
-
-SlamFrames was built for the OctoWoW community. Development also benefited from studying established Vanilla/Turtle UI projects and compatibility layers, including Dragonflight: Reloaded, pfUI / Shagu-style implementations, SuperWoW, Nampower, HealComm-compatible healing communication, and legacy cast-timing behavior.
+**SlamFrames 3.3**

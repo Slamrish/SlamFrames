@@ -1,39 +1,23 @@
-SlamFrames 3.1.0
+SlamFrames 3.3 - Custom Unit Frames for Vanilla / OctoWoW
 
-SlamFrames is a custom unit-frame suite for OctoWoW / Vanilla 1.12-style clients. It is designed around SuperWoW/Nampower-compatible environments and is not intended for Retail or modern Classic clients.
-
-3.1 highlights
-
-- Major Party Frame performance overhaul.
-- Party health/aura/resource events update only the affected member and subsystem.
-- Party-join roster bursts are coalesced and populated incrementally to reduce hitching.
-- Circular Party Frame portraits are built incrementally instead of all at once.
-- New Party-only Mana / Rage / Energy / Focus resource bars.
-- Party resource bars can be toggled from Settings -> Party or with /sf partypower on/off.
-- Stable Player, Target, Target-of-Target, Party, and Raid frames.
-- Compact Raid mode and multiple raid layouts.
-- Click casting with Normal behavior, spell casting, and usable items.
-- Factory/reset click bindings contain no prefilled spell or item names.
-- Predictive healing with HealComm support plus local fallback.
-- Per-character settings.
-- 4K and dedicated 1080p artwork modes.
-- Light and Dark skins.
-- Refined Ornate cast-bar artwork with the unwanted inner guide/divider lines removed.
-- Working Normal left/right unit-frame interactions and right-click menus.
-
-Fresh installation
-
+Quick installation
 1. Close World of Warcraft.
-2. Extract SlamFrames-v3.1.0.zip.
-3. Copy the included SlamFrames folder to Interface\AddOns\.
-4. Confirm the final path is Interface\AddOns\SlamFrames\SlamFrames.toc.
-5. Launch OctoWoW.
-6. Open settings with /sf settings.
+2. Extract SlamFrames-3.3.zip.
+3. Place the SlamFrames folder in World of Warcraft\Interface\AddOns\.
+4. Check that AddOns\SlamFrames\SlamFrames.toc exists.
+5. Start World of Warcraft and enable SlamFrames if necessary.
+6. Type /sf settings to customize the frames.
 
-This package is standalone. It does not require another SlamFrames version to already be installed.
+If updating, delete the old SlamFrames folder first instead of merging files.
+Your per-character game SavedVariables are stored elsewhere and remain available.
 
-Updating
+Version 3.3 includes Rogue/Druid Player and Target combo trackers, corrected
+Light/Dark Focus health fills, clean new-character click-cast defaults, and
+improved cast-bar wording for world interactions.
+The supported cast-bar skins are V1 and Ornate.
 
-Replace the old SlamFrames addon folder with the new release folder instead of merging them. SavedVariables are stored separately.
+Requires a compatible Vanilla / WoW 1.12-style client; not Retail WoW.
+No earlier SlamFrames version is required.
 
-Current stable release: 3.1.0
+Full instructions: README.md
+Project: https://github.com/Slamrish/SlamFrames

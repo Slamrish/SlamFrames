@@ -99,6 +99,135 @@ local function FindCC()
     return nil
 end
 
+local FEED_PET_EFFECT_ID=1539
+
+local function LooksLikeTexturePath(v)
+    if type(v)~="string" then return false end
+    if string.find(v,"\\") then return true end
+    if string.find(string.lower(v),"interface") then return true end
+    return false
+end
+
+local function PetAuraTooltipName(index)
+    if not index then return nil end
+    if not SF.petAuraScanTooltip then
+        SF.petAuraScanTooltip=CreateFrame("GameTooltip","SlamFramesPetAuraTooltip",UIParent,"GameTooltipTemplate")
+        SF.petAuraScanTooltip:SetOwner(UIParent,"ANCHOR_NONE")
+    end
+    local tip=SF.petAuraScanTooltip
+    if not tip or not tip.SetUnitBuff then return nil end
+    tip:ClearLines()
+    local ok=pcall(function() tip:SetUnitBuff("pet",index) end)
+    if not ok then return nil end
+    local line=_G and _G["SlamFramesPetAuraTooltipTextLeft1"] or nil
+    if line and line.GetText then return line:GetText() end
+    return nil
+end
+
+local function IsFeedPetEffectActive()
+    if type(UnitExists)~="function" or not UnitExists("pet") or type(UnitBuff)~="function" then return false end
+    local feedName="feed pet effect"
+    local feedIcon=nil
+    if type(SpellInfo)=="function" then
+        local ok,name,rank,icon=pcall(SpellInfo,FEED_PET_EFFECT_ID)
+        if ok then
+            if name and name~="" then feedName=string.lower(name) end
+            feedIcon=icon
+        end
+    end
+
+    local i
+    for i=1,32 do
+        local r1,r2,r3,r4,r5,r6=UnitBuff("pet",i)
+        if not r1 then break end
+
+        local id3=tonumber(r3)
+        local id4=tonumber(r4)
+        local id5=tonumber(r5)
+        local id6=tonumber(r6)
+        if id3==FEED_PET_EFFECT_ID or id4==FEED_PET_EFFECT_ID or id5==FEED_PET_EFFECT_ID or id6==FEED_PET_EFFECT_ID then return true end
+
+        if type(r1)=="string" and not LooksLikeTexturePath(r1) then
+            local n=string.lower(r1)
+            if n==feedName or string.find(n,"feed pet") then return true end
+        end
+        if feedIcon and r1==feedIcon then return true end
+
+        local tooltipName=PetAuraTooltipName(i)
+        if tooltipName then
+            local n=string.lower(tooltipName)
+            if n==feedName or string.find(n,"feed pet") then return true end
+        end
+    end
+    return false
+end
+
+function SF:CreatePetEffects()
+    if self.petEffectsCreated or not self.pet then return end
+    self.petEffectsCreated=true
+    local p=self.pet
+    if not p.statusFrame then
+        p.statusFrame=CreateFrame("Frame",nil,p)
+        p.statusFrame:SetAllPoints(p)
+    end
+
+    p.eatingGlow=p.statusFrame:CreateTexture(nil,"OVERLAY")
+    p.eatingGlow:SetTexture((SF.GetSkinTexture and SF:GetSkinTexture(C.levelBadgeTexture or "level_badge.tga")) or (TEX..(C.levelBadgeTexture or "level_badge.tga")))
+    p.eatingGlow:SetBlendMode("ADD")
+    p.eatingGlow:SetVertexColor(0.08,1.00,0.20)
+    p.eatingGlow:SetAlpha(0); p.eatingGlow:Hide()
+
+    p.eatingGlowHalo=p.statusFrame:CreateTexture(nil,"OVERLAY")
+    p.eatingGlowHalo:SetTexture(((SF.GetTextureRoot and SF:GetTextureRoot()) or TEX)..(C.combatGlowTexture or "combat_glow.tga"))
+    p.eatingGlowHalo:SetBlendMode("ADD")
+    p.eatingGlowHalo:SetVertexColor(0.05,1.00,0.18)
+    p.eatingGlowHalo:SetAlpha(0); p.eatingGlowHalo:Hide()
+
+    self:LayoutPetEffects()
+    self:UpdatePetEatingState(true)
+end
+
+function SF:LayoutPetEffects()
+    if not self.petEffectsCreated or not self.pet then return end
+    local p=self.pet
+    local cfg=p.cfg
+    if not cfg or not cfg.portrait then return end
+    local scale=p.layoutScale or 1
+    local ps=cfg.portrait.size*scale
+    local px=cfg.portrait.x*scale
+    local py=cfg.portrait.y*scale
+    local ringSize=ps*1.17
+    p.eatingGlow:ClearAllPoints(); p.eatingGlow:SetPoint("CENTER",p,"BOTTOMLEFT",px,py); p.eatingGlow:SetWidth(ringSize); p.eatingGlow:SetHeight(ringSize)
+    p.eatingGlowHalo:ClearAllPoints(); p.eatingGlowHalo:SetPoint("CENTER",p,"BOTTOMLEFT",px,py); p.eatingGlowHalo:SetWidth(ps*1.48); p.eatingGlowHalo:SetHeight(ps*1.48)
+    if self.RefreshFrameLayers then self:RefreshFrameLayers(self.topFrameKey) end
+end
+
+function SF:RenderPetEatingGlow()
+    if not self.petEffectsCreated or not self.pet then return end
+    local p=self.pet
+    local active=self.petEatingActive and SlamFramesDB and SlamFramesDB.showPetFeedingGlow and UnitExists("pet") and p:IsShown()
+    if not active then
+        if p.eatingGlow then p.eatingGlow:Hide() end
+        if p.eatingGlowHalo then p.eatingGlowHalo:Hide() end
+        return
+    end
+
+    local now=GetTime()
+    local wave=0.5+0.5*math.sin(now*4.2)
+    p.eatingGlow:Show(); p.eatingGlowHalo:Show()
+    p.eatingGlow:SetAlpha(0.42+0.48*wave)
+    p.eatingGlowHalo:SetAlpha(0.10+0.28*wave)
+end
+
+function SF:UpdatePetEatingState(force)
+    if not self.petEffectsCreated or not self.pet then return end
+    local active=false
+    if SlamFramesDB and SlamFramesDB.showPetFeedingGlow and UnitExists("pet") then active=IsFeedPetEffectActive() and true or false end
+    local changed=(active~=self.petEatingActive)
+    self.petEatingActive=active
+    if changed or force then self:RenderPetEatingGlow() end
+end
+
 function SF:CreatePlayerEffects()
     if self.effectsCreated or not self.player then return end
     self.effectsCreated=true
@@ -174,6 +303,7 @@ function SF:CreatePlayerEffects()
 
     self:RefreshFrameLayers(self.topFrameKey)
     self:LayoutPlayerEffects()
+    if self.CreatePetEffects then self:CreatePetEffects() end
     self:UpdatePlayerEffects(true)
 end
 
@@ -235,7 +365,8 @@ function SF:SaveCCPosition()
 end
 
 function SF:ResetCCPosition()
-    SlamFramesDB.ccAnchor=nil
+    local d=SF.MASTER_DEFAULT_PROFILE and SF.MASTER_DEFAULT_PROFILE.ccAnchor
+    if d then SlamFramesDB.ccAnchor={x=d.x or 0,y=d.y or 0} else SlamFramesDB.ccAnchor=nil end
     self:LayoutPlayerEffects()
     if self.RefreshSettings then self:RefreshSettings() end
     if self.Print then self.Print("CC notification reset above the player health bar.") end
@@ -332,11 +463,22 @@ end
 
 local effectsUpdater=CreateFrame("Frame","SlamFrames_EffectsUpdater",UIParent)
 local elapsed=0
+local petScanElapsed=0
 effectsUpdater:SetScript("OnUpdate",function()
     if not SF.effectsCreated then return end
     elapsed=elapsed+(arg1 or 0)
+    petScanElapsed=petScanElapsed+(arg1 or 0)
     local interval=(C.effects and C.effects.scanInterval) or 0.10
-    if elapsed<interval then return end
-    elapsed=0
-    SF:UpdatePlayerEffects(false)
+    if elapsed>=interval then
+        elapsed=0
+        SF:UpdatePlayerEffects(false)
+        if SF.RenderPetEatingGlow then SF:RenderPetEatingGlow() end
+    end
+    -- UNIT_AURA is the primary trigger. This slow fallback makes the green
+    -- feeding state self-healing on clients that occasionally miss pet aura
+    -- events, without adding combat-frequency aura scans.
+    if petScanElapsed>=0.50 then
+        petScanElapsed=0
+        if SF.UpdatePetEatingState then SF:UpdatePetEatingState(false) end
+    end
 end)

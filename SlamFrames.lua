@@ -1,4 +1,4 @@
--- SlamFrames v3.1.0
+-- SlamFrames v3.3
 -- OctoWoW / 1.12-era compatible unit frames.
 -- Uses old event globals (event, arg1, this) intentionally.
 
@@ -8,95 +8,146 @@ local C = SlamFrames_Config
 local Bars = SlamFrames_BarEngine
 local TEX = C.texturePath
 
-local DEFAULTS = {
-    -- SlamFrames 1.0 ships with the author's tested everyday profile as the
-    -- fresh-install baseline. Existing SavedVariables are preserved.
-    locked = true,
-    hideBlizzard = true,
-    showAuras = true,
-    smoothBars = true,
-    testMode = false,
-    healthTextMode = "amount", -- percent | amount | both | off
-    showPowerNumbers = true,
-    showRestingEffect = true,
-    showCCEffect = true,
-    showCombatGlow = true,
-    selfTargetOnClick = true,
-    combatGlowIntensity = 1.30,
-    showMinimapButton = true,
-    skin = "dark",
-    artResolution = "4k", -- 4k | 1080
-
-    -- Party-frame defaults. The group uses one shared visual profile
-    -- so all four members stay consistent while still being movable as a unit.
-    showPartyFrames = true,
-    partyHideInRaid = true,
-    showPartyPower = true,
-    partySpacing = 8,
+local MASTER_DEFAULT_PROFILE = {
+    -- Stable author defaults for fresh installations and Reset All.
+    -- Character identity and legacy migration-only coordinates are deliberately
+    -- excluded; valid UI preferences and authored anchors are retained.
     partyNameOffset = 0,
-
-    -- Raid-frame defaults. Raid frames intentionally inherit the compact
-    -- Party/ToT visual language and add an 8-group x 5-member layout.
-    showRaidFrames = true,
-    raidSpacing = 4,
-    raidGroupSpacing = 10,
-    raidGroupRowSpacing = 36,
-    raidGroupsPerRow = 8, -- 8 Across | 4 = 4+4 | 2 = two groups across
-    raidNameOffset = 0,
-    raidShowGroupHeaders = true,
-    raidCompactMode = false,
-    raidOpacity = 1.00, -- 0.20 - 1.00; visual only, click targets remain active
+    widthPresets = { player=1, target=1, tot=1, pet=1, party=1, raid=3 },
+    showNumbers = true,
+    petStatusSideDistance = 0,
+    locked = true,
+    powerTextScale = 1.30,
+    raidPreviewMainTanks = true,
+    hideBlizzard = true,
+    auraScale = 1.30,
+    focusHealthTextScale = 1.00,
+    auraTimerTextScale = 0.80,
+    castbarFlavorTextScale = 1.50,
+    selfTargetOnClick = true,
+    targetNameOffsetNormal = 0,
+    castbarStyle = 2,
+    portraitZooms = { player=1.00, target=1.00, tot=1.08, pet=1.00, party=1.08, raid=1.08 },
+    raidGroupSpacing = 8,
+    focusNameTextScale = 1.00,
     raidClassColoredNames = false,
-    raidPreviewSize = 20,
-    raidPreviewDebuffs = false,
-    raidDebuffGlowSize = 2,
-    raidPreviewMainTanks = false,
-    minimapAngle = -0.4897411260673095,
-    minimapRadius = 80,
-
-    -- Player cast bar defaults from the 1.0 release profile.
-    showPlayerCastbar = true,
+    castbarWidth = 360,
+    ccAnchor = { y=73.98975554593724, x=-35.55593730832338 },
+    clickCastingEnabled = true,
+    showPartyPower = true,
+    showAuras = true,
+    partyDebuffAlerts = true,
+    partyHealthTextMode = "percent",
+    showFocusFrame = true,
+    raidCompactMode = true,
+    specialTargetFrames = true,
+    minimapAngle = 2.861453386963857,
+    petStatusIconScale = 2.25,
+    anchors = {
+        player={ y=-472.1694159818654, x=392.3787651876946, point="TOPLEFT", relativePoint="TOPLEFT" },
+        tot={ y=-550.3918478033779, x=978.4441982351852, point="TOPLEFT", relativePoint="TOPLEFT" },
+        target={ y=-473.2630515849734, x=808.7670930998575, point="TOPLEFT", relativePoint="TOPLEFT" },
+        raid={ y=-27.73100809424528, x=25.75436739717688, point="TOPLEFT", relativePoint="TOPLEFT" },
+        pet={ y=-407.9708281920377, x=333.9942613531879, point="TOPLEFT", relativePoint="TOPLEFT" },
+        party={ y=-210, x=28, point="TOPLEFT", relativePoint="TOPLEFT" },
+    },
+    raidShowGroupHeaders = true,
+    castbarShowLatency = true,
+    clickCastingTooltip = false,
+    showRaidFrames = true,
+    partyDebuffMessage = true,
     hideBlizzardCastbar = true,
-    hideBlizzardErrorText = false, -- suppress UI_ERROR_MESSAGE red text only
+    showMinimapButton = true,
+    raidHealthTextMode = "percent",
+    petStatusIconPosition = "healthright",
+    raidGroupRowSpacing = 36,
+    focusHeight = 48,
+    combatGlowIntensity = 1.30,
+    levelTextScale = 1.00,
+    showPowerNumbers = true,
+    specialPlayerFrameStyle = "boss",
+    skin = "dark",
+    testMode = false,
+    healthTextScale = 1.80,
+    showCombatGlow = true,
+    raidGroupsPerRow = 4,
+    artResolution = "4k",
+    auraShowCooldownSweep = false,
+    specialPlayerNameOffset = 30,
+    raidDebuffGlowSize = 2,
+    showPetFeedingGlow = true,
+    raidSpacing = 4,
+    focusAnchor = { y=-554.0553204896171, x=635.4529860638431, point="TOPLEFT", relativePoint="TOPLEFT" },
+    partyDebuffOnlyDispellable = true,
+    showHunterPetStatusIcon = true,
+    partySpacing = 8,
+    partyDebuffSound = false,
+    smoothBars = true,
+    scales = { player=0.60, target=0.60, tot=0.60, pet=0.60, party=0.60, raid=0.60 },
+    focusScale = 0.75,
+    nameTextScale = 1.30,
+    showRestingEffect = true,
+    showPartyFrames = true,
+    auraShowTimerText = true,
+    castbarScale = 0.80,
+    targetNameOffsetFriendly = 0,
+    showCCEffect = true,
+    healthTextMode = "amount",
+    castbarAnchor = { y=-223.9663928692352, x=-9.725422634849565 },
     castbarShowIcon = true,
     castbarShowTimer = true,
-    castbarShowLatency = true,
-    castbarScale = 0.80,
-    castbarWidth = 360,
-    castbarStyle = 1,
-    castbarAnchor = nil, -- fresh installs receive the 1.0 anchor during DBInit
-
-    -- Text / aura presentation.
-    nameTextScale = 1.30,
-    healthTextScale = 1.80,
-    powerTextScale = 1.30,
-    levelTextScale = 1.00,
-    auraScale = 1.30,
+    raidPreviewDebuffs = true,
+    focusWidth = 220,
+    healPredictionAlpha = 0.55,
+    castbarFlavorTextEnabled = true,
+    petHappinessTaskbarFlash = true,
+    specialPlayerFrameEnabled = true,
+    raidNameOffset = 0,
+    raidOpacity = 1.00,
+    hideBlizzardErrorText = true,
+    minimapRadius = 80,
+    focusHealthTextMode = "amount",
+    raidPreviewSize = 40,
+    partyHideInRaid = true,
+    totHealthTextMode = "percent",
+    clickBindingSets = {
+        alt={ MiddleButton={spell="",action="normal"}, LeftButton={spell="",action="normal"}, RightButton={spell="",action="normal"} },
+        ctrl={ MiddleButton={spell="",action="normal"}, LeftButton={spell="",action="normal"}, RightButton={spell="",action="normal"} },
+        shift={ MiddleButton={spell="",action="normal"}, LeftButton={spell="",action="normal"}, RightButton={spell="",action="normal"} },
+        none={ MiddleButton={spell="",action="normal"}, LeftButton={spell="",action="normal"}, RightButton={spell="",action="normal"} },
+    },
+    showPlayerCastbar = true,
+    healPredictionEnabled = true,
+    targetNameOffsetSpecial = 0,
+    clickCastingApplyNormal = true,
+    petHappinessAlerts = true,
     auraRowSpacing = 1.00,
-    auraShowCooldownSweep = false, -- retired/compatibility only
-    auraShowTimerText = true,
-    auraTimerTextScale = 1.00,
-
-    -- 0=full, 1=~90%, 2=~80%, 3=~70% bar length.
-    widthPresets = { player = 1, target = 1, tot = 1, party = 1, raid = 1 },
-    portraitZooms = { player = 1.00, target = 1.00, tot = 1.08, party = 1.08, raid = 1.08 },
-    ccAnchor = nil, -- fresh installs receive the 1.0 anchor during DBInit
+    showPetFrame = true,
+    -- Rogue / Druid combo tracker. It follows Player scale and bar length,
+    -- while these offsets allow small personal placement adjustments.
+    showComboPoints = true,
+    -- Keep the original Vanilla combo arc attached to the SlamFrames Target
+    -- portrait instead of leaving it floating at Blizzard's hidden TargetFrame.
+    -- Per-character, like the rest of the SlamFrames profile.
+    showTargetComboPoints = true,
+    -- Native-style Target combo arc is intentionally larger than Blizzard's
+    -- stock 1.12 sprite size so it reads properly on SlamFrames portraits.
+    targetComboPointScale = 1.50,
+    comboDruidHideOutsideCat = true,
+    comboPointScale = 1.00,
+    comboPointXOffset = 0,
+    comboPointYOffset = 0,
 }
 
-local DEFAULT_ANCHORS = {
-    player = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = 395.0000032142003, y = -495.0000133355117 },
-    target = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = 784.0657184958282, y = -500.5849639301763 },
-    tot    = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = 969.5351682404736, y = -582.4043413313806 },
-    party  = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = 28, y = -210 },
-    raid   = { point = "TOPLEFT", relativePoint = "TOPLEFT", x = 28, y = -210 },
-}
+-- Keep one canonical default profile for fresh installs and Reset All.
+SF.MASTER_DEFAULT_PROFILE = MASTER_DEFAULT_PROFILE
+local DEFAULTS = MASTER_DEFAULT_PROFILE
+
+local DEFAULT_ANCHORS = MASTER_DEFAULT_PROFILE.anchors
+
+local DEFAULT_SCALES = MASTER_DEFAULT_PROFILE.scales
 
 local DEFAULT_TOT_RELATION = { point="TOPRIGHT", relativePoint="BOTTOMRIGHT", x=0, y=-10 }
-
--- The compact 0.60 presentation from the user's in-game screenshot is now the
--- reset/fresh-install baseline. Scaling is performed by explicit layout rather
--- than Frame:SetScale, so child text and geometry stay proportional.
-local DEFAULT_SCALES = { player = 0.60, target = 0.60, tot = 0.60, party = 0.60, raid = 0.60 }
 
 local function Print(msg)
     if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("|cffffcc33SlamFrames:|r " .. msg) end
@@ -153,6 +204,7 @@ end
 
 local ART_RESOLUTION_FACTORS = {
     ["4k"] = 1.00,
+    ["4kcompat"] = 1.00, -- 4K geometry with renderer-safe <=512px artwork
     ["1080"] = 0.82,
 }
 
@@ -161,7 +213,7 @@ function SF:GetArtResolution()
     if SlamFramesDB and SlamFramesDB.artResolution then
         r = string.lower(tostring(SlamFramesDB.artResolution))
     end
-    if r ~= "1080" and r ~= "4k" then
+    if r ~= "1080" and r ~= "4k" and r ~= "4kcompat" then
         r = "4k"
     end
     return r
@@ -169,7 +221,11 @@ end
 
 function SF:GetTextureRoot()
     local root = C.texturePath or "Interface\\AddOns\\SlamFrames\\Textures\\"
-    if self:GetArtResolution() == "1080" then
+    local mode = self:GetArtResolution()
+    -- 4K Compatible deliberately uses the proven 1080 texture set while
+    -- retaining the full 4K layout/config geometry. This avoids the old-client
+    -- renderer having to allocate 1024px-wide unit-frame artwork.
+    if mode == "1080" or mode == "4kcompat" then
         return root .. "1080\\"
     end
     return root
@@ -216,6 +272,7 @@ function SF:ApplyArtResolutionConfigs()
         player = BuildResolvedUnitConfig(C.player, factor),
         target = BuildResolvedUnitConfig(C.target, factor),
         tot    = BuildResolvedUnitConfig(C.tot, factor),
+        pet    = BuildResolvedUnitConfig(C.tot, factor),
         party  = BuildResolvedUnitConfig(C.party, factor),
         raid   = BuildResolvedUnitConfig(C.raid, factor),
     }
@@ -224,10 +281,13 @@ end
 
 function SF:SetArtResolution(name, quiet)
     local mode = string.lower(tostring(name or "4k"))
-    if mode ~= "1080" and mode ~= "4k" then mode = "4k" end
+    if mode ~= "1080" and mode ~= "4k" and mode ~= "4kcompat" then mode = "4k" end
     SlamFramesDB.artResolution = mode
     if self.RefreshSettings then self:RefreshSettings() end
-    if not quiet and self.Print then self.Print("art resolution set to "..string.upper(mode)..". Please /reload to rebuild textures and geometry.") end
+    if not quiet and self.Print then
+        local label=(mode=="4kcompat" and "4K Compatible") or (mode=="1080" and "1080") or "4K"
+        self.Print("art resolution set to "..label..". Please /reload to rebuild textures and geometry.")
+    end
     return true
 end
 
@@ -250,6 +310,12 @@ local function ActivateCharacterDB()
 
     if type(SlamFramesCharacterDB) ~= "table" or SlamFramesCharacterDB.__sfPerCharacter ~= true then
         SlamFramesCharacterDB = DeepCopyTable(SlamFramesAccountDB.characterSeed or {})
+        -- account-wide characterSeed may contain another character's
+        -- healing/item click binds. Keep the normal seeded appearance/settings,
+        -- but ALWAYS start a new character with empty, unmodified mouse binds.
+        -- Existing per-character profiles are never touched by this branch.
+        SlamFramesCharacterDB.clickBindingSets = DeepCopyTable(MASTER_DEFAULT_PROFILE.clickBindingSets)
+        SlamFramesCharacterDB.clickBindings = nil -- legacy flat binds cannot restore a stale spell
         SlamFramesCharacterDB.__sfPerCharacter = true
         SlamFramesCharacterDB.__sfCharacter = GetCharacterProfileLabel()
     end
@@ -263,7 +329,11 @@ local function DBInit()
     if not SlamFramesDB then SlamFramesDB = {} end
     local oldVersion = SlamFramesDB.dbVersion or 0
     local k,v
-    for k,v in pairs(DEFAULTS) do if SlamFramesDB[k] == nil then SlamFramesDB[k] = v end end
+    for k,v in pairs(DEFAULTS) do
+        -- Anchors/scales are initialized below so legacy playerX/targetX and
+        -- old shared scale migrations remain intact for existing users.
+        if k~="anchors" and k~="scales" and SlamFramesDB[k] == nil then SlamFramesDB[k] = DeepCopyTable(v) end
+    end
 
     -- v0.6 used a single showNumbers toggle. Preserve the intent but move to a
     -- clearer text-mode setting. New installs default to the 1.0 amount display.
@@ -294,6 +364,22 @@ local function DBInit()
         SlamFramesDB.partyHealthTextMode = "percent"
     end
     if SlamFramesDB.showPartyFrames == nil then SlamFramesDB.showPartyFrames = true end
+    if SlamFramesDB.showPetFrame == nil then SlamFramesDB.showPetFrame = true end
+    if SlamFramesDB.showHunterPetStatusIcon == nil then SlamFramesDB.showHunterPetStatusIcon = true end
+    if SlamFramesDB.petStatusIconScale == nil then SlamFramesDB.petStatusIconScale = 2.00 end
+    SlamFramesDB.petStatusIconScale = Clamp(tonumber(SlamFramesDB.petStatusIconScale) or 2.00, 1.00, 3.00)
+    if SlamFramesDB.petStatusIconPosition ~= "portrait" and SlamFramesDB.petStatusIconPosition ~= "healthleft" and SlamFramesDB.petStatusIconPosition ~= "healthright" then SlamFramesDB.petStatusIconPosition = "portrait" end
+    SlamFramesDB.petStatusSideDistance = Clamp(tonumber(SlamFramesDB.petStatusSideDistance) or 0, 0, 40)
+    if SlamFramesDB.petHappinessAlerts == nil then SlamFramesDB.petHappinessAlerts = true end
+    if SlamFramesDB.petHappinessTaskbarFlash == nil then SlamFramesDB.petHappinessTaskbarFlash = true end
+    if SlamFramesDB.showPetFeedingGlow == nil then SlamFramesDB.showPetFeedingGlow = true end
+    if SlamFramesDB.showComboPoints == nil then SlamFramesDB.showComboPoints = true end
+    if SlamFramesDB.showTargetComboPoints == nil then SlamFramesDB.showTargetComboPoints = true end
+    SlamFramesDB.targetComboPointScale = Clamp(tonumber(SlamFramesDB.targetComboPointScale) or 1.50,0.75,2.00)
+    if SlamFramesDB.comboDruidHideOutsideCat == nil then SlamFramesDB.comboDruidHideOutsideCat = true end
+    SlamFramesDB.comboPointScale = Clamp(tonumber(SlamFramesDB.comboPointScale) or 1.00,0.65,1.50)
+    SlamFramesDB.comboPointXOffset = Clamp(tonumber(SlamFramesDB.comboPointXOffset) or 0,-100,100)
+    SlamFramesDB.comboPointYOffset = Clamp(tonumber(SlamFramesDB.comboPointYOffset) or 0,-100,100)
     if SlamFramesDB.partyHideInRaid == nil then SlamFramesDB.partyHideInRaid = true end
     if SlamFramesDB.showPartyPower == nil then SlamFramesDB.showPartyPower = true end
     SlamFramesDB.partySpacing = Clamp(tonumber(SlamFramesDB.partySpacing) or 8, 0, 40)
@@ -327,7 +413,7 @@ local function DBInit()
     SlamFramesDB.combatGlowIntensity = Clamp(tonumber(SlamFramesDB.combatGlowIntensity) or 1.30, 0.50, 2.00)
     if SlamFramesDB.showMinimapButton == nil then SlamFramesDB.showMinimapButton = true end
     if SlamFramesDB.skin ~= "light" and SlamFramesDB.skin ~= "dark" then SlamFramesDB.skin = "dark" end
-    if SlamFramesDB.artResolution ~= "1080" and SlamFramesDB.artResolution ~= "4k" then SlamFramesDB.artResolution = "4k" end
+    if SlamFramesDB.artResolution ~= "1080" and SlamFramesDB.artResolution ~= "4k" and SlamFramesDB.artResolution ~= "4kcompat" then SlamFramesDB.artResolution = "4k" end
 
     if SlamFramesDB.showPlayerCastbar == nil then SlamFramesDB.showPlayerCastbar = true end
     if SlamFramesDB.hideBlizzardCastbar == nil then SlamFramesDB.hideBlizzardCastbar = true end
@@ -337,8 +423,16 @@ local function DBInit()
     if SlamFramesDB.castbarShowLatency == nil then SlamFramesDB.castbarShowLatency = true end
     SlamFramesDB.castbarScale = Clamp(tonumber(SlamFramesDB.castbarScale) or 0.80, 0.50, 1.60)
     SlamFramesDB.castbarWidth = math.floor((Clamp(tonumber(SlamFramesDB.castbarWidth) or 360,260,540)+5)/10)*10
-    -- Style 2 is parked for later development; always migrate back to Style 1.
-    SlamFramesDB.castbarStyle = 1
+    -- The supported cast-bar system has two skins: V1 and Ornate.
+    -- V1 = 1, Ornate = 2. Intermediate releases used slot 2 for V2 and
+    -- slot 3 for Ornate; migrate those saved values once at dbVersion 28.
+    local castStyle=tonumber(SlamFramesDB.castbarStyle)
+    if oldVersion >= 27 and oldVersion < 28 then
+        if castStyle == 3 then castStyle = 2
+        elseif castStyle == 2 then castStyle = 1 end
+    end
+    if castStyle~=1 and castStyle~=2 then castStyle=MASTER_DEFAULT_PROFILE.castbarStyle or 2 end
+    SlamFramesDB.castbarStyle=castStyle
     if SlamFramesDB.castbarAnchor ~= nil and type(SlamFramesDB.castbarAnchor) ~= "table" then SlamFramesDB.castbarAnchor = nil end
     if oldVersion == 0 and SlamFramesDB.castbarAnchor == nil then
         SlamFramesDB.castbarAnchor = { x = -18.33375010796635, y = -240.8081150486736 }
@@ -377,11 +471,13 @@ local function DBInit()
     if SlamFramesDB.widthPresets.player == nil then SlamFramesDB.widthPresets.player = 1 end
     if SlamFramesDB.widthPresets.target == nil then SlamFramesDB.widthPresets.target = 1 end
     if SlamFramesDB.widthPresets.tot == nil then SlamFramesDB.widthPresets.tot = 1 end
+    if SlamFramesDB.widthPresets.pet == nil then SlamFramesDB.widthPresets.pet = 1 end
     if SlamFramesDB.widthPresets.party == nil then SlamFramesDB.widthPresets.party = 1 end
     if SlamFramesDB.widthPresets.raid == nil then SlamFramesDB.widthPresets.raid = 1 end
     SlamFramesDB.widthPresets.player = Clamp(math.floor((SlamFramesDB.widthPresets.player or 0) + 0.5), 0, (C.player.widthSlices and C.player.widthSlices.maxPreset) or 0)
     SlamFramesDB.widthPresets.target = Clamp(math.floor((SlamFramesDB.widthPresets.target or 0) + 0.5), 0, (C.target.widthSlices and C.target.widthSlices.maxPreset) or 0)
     SlamFramesDB.widthPresets.tot = Clamp(math.floor((SlamFramesDB.widthPresets.tot or 0) + 0.5), 0, (C.tot.widthSlices and C.tot.widthSlices.maxPreset) or 0)
+    SlamFramesDB.widthPresets.pet = Clamp(math.floor((SlamFramesDB.widthPresets.pet or 0) + 0.5), 0, (C.tot.widthSlices and C.tot.widthSlices.maxPreset) or 0)
     SlamFramesDB.widthPresets.party = Clamp(math.floor((SlamFramesDB.widthPresets.party or 0) + 0.5), 0, (C.party.widthSlices and C.party.widthSlices.maxPreset) or 0)
     SlamFramesDB.widthPresets.raid = Clamp(math.floor((SlamFramesDB.widthPresets.raid or 0) + 0.5), 0, (C.raid.widthSlices and C.raid.widthSlices.maxPreset) or 0)
 
@@ -389,11 +485,13 @@ local function DBInit()
     if SlamFramesDB.portraitZooms.player == nil then SlamFramesDB.portraitZooms.player = 1.00 end
     if SlamFramesDB.portraitZooms.target == nil then SlamFramesDB.portraitZooms.target = 1.00 end
     if SlamFramesDB.portraitZooms.tot == nil then SlamFramesDB.portraitZooms.tot = C.tot.portrait.zoom or 1.00 end
+    if SlamFramesDB.portraitZooms.pet == nil then SlamFramesDB.portraitZooms.pet = C.tot.portrait.zoom or 1.08 end
     if SlamFramesDB.portraitZooms.party == nil then SlamFramesDB.portraitZooms.party = C.party.portrait.zoom or 1.08 end
     if SlamFramesDB.portraitZooms.raid == nil then SlamFramesDB.portraitZooms.raid = C.raid.portrait.zoom or 1.08 end
     SlamFramesDB.portraitZooms.player = Clamp(tonumber(SlamFramesDB.portraitZooms.player) or 1.00, 1.00, 1.50)
     SlamFramesDB.portraitZooms.target = Clamp(tonumber(SlamFramesDB.portraitZooms.target) or 1.00, 1.00, 1.50)
     SlamFramesDB.portraitZooms.tot = Clamp(tonumber(SlamFramesDB.portraitZooms.tot) or 1.08, 1.00, 1.50)
+    SlamFramesDB.portraitZooms.pet = Clamp(tonumber(SlamFramesDB.portraitZooms.pet) or 1.08, 1.00, 1.50)
     SlamFramesDB.portraitZooms.party = Clamp(tonumber(SlamFramesDB.portraitZooms.party) or 1.08, 1.00, 1.50)
     SlamFramesDB.portraitZooms.raid = Clamp(tonumber(SlamFramesDB.portraitZooms.raid) or 1.08, 1.00, 1.50)
     if SlamFramesDB.ccAnchor ~= nil and type(SlamFramesDB.ccAnchor) ~= "table" then SlamFramesDB.ccAnchor = nil end
@@ -401,7 +499,7 @@ local function DBInit()
         SlamFramesDB.ccAnchor = { x = -35.55593730832338, y = 73.98975554593724 }
     end
 
-    if SlamFramesDB.minimapAngle == nil then SlamFramesDB.minimapAngle = -0.4897411260673095 end
+    if SlamFramesDB.minimapAngle == nil then SlamFramesDB.minimapAngle = MASTER_DEFAULT_PROFILE.minimapAngle end
     if SlamFramesDB.minimapRadius == nil then SlamFramesDB.minimapRadius = 80 end
     SlamFramesDB.minimapRadius = Clamp(tonumber(SlamFramesDB.minimapRadius) or 80, 65, 105)
 
@@ -419,6 +517,7 @@ local function DBInit()
         else SlamFramesDB.anchors.target = CopyAnchor(DEFAULT_ANCHORS.target) end
     end
     if not SlamFramesDB.anchors.tot then SlamFramesDB.anchors.tot = CopyAnchor(DEFAULT_ANCHORS.tot) end
+    if not SlamFramesDB.anchors.pet then SlamFramesDB.anchors.pet = CopyAnchor(DEFAULT_ANCHORS.pet) end
     if not SlamFramesDB.anchors.party then SlamFramesDB.anchors.party = CopyAnchor(DEFAULT_ANCHORS.party) end
     if not SlamFramesDB.anchors.raid then SlamFramesDB.anchors.raid = CopyAnchor(DEFAULT_ANCHORS.raid) end
 
@@ -426,11 +525,12 @@ local function DBInit()
     if SlamFramesDB.scales.player == nil then SlamFramesDB.scales.player = oldScale or DEFAULT_SCALES.player end
     if SlamFramesDB.scales.target == nil then SlamFramesDB.scales.target = oldScale or DEFAULT_SCALES.target end
     if SlamFramesDB.scales.tot == nil then SlamFramesDB.scales.tot = oldScale or DEFAULT_SCALES.tot end
+    if SlamFramesDB.scales.pet == nil then SlamFramesDB.scales.pet = DEFAULT_SCALES.pet end
     if SlamFramesDB.scales.party == nil then SlamFramesDB.scales.party = DEFAULT_SCALES.party end
     if SlamFramesDB.scales.raid == nil then SlamFramesDB.scales.raid = DEFAULT_SCALES.raid end
 
     if SF.InitClickCastingDB then SF:InitClickCastingDB() end
-    SlamFramesDB.dbVersion = 24
+    SlamFramesDB.dbVersion = 28
 end
 
 local function FormatNumber(n)
@@ -540,6 +640,7 @@ local function FrameForKey(key)
     if key == "player" then return SF.player end
     if key == "target" then return SF.target end
     if key == "tot" then return SF.tot end
+    if key == "pet" then return SF.pet end
     if key == "party" then return SF.partyFrames and SF.partyFrames[1] end
     if key == "raid" then return SF.raidFrames and SF.raidFrames[1] end
 end
@@ -550,6 +651,7 @@ local function NormalizeKey(key)
     if key == "p" or key == "player" then return "player" end
     if key == "t" or key == "target" then return "target" end
     if key == "tot" or key == "targettarget" or key == "target-of-target" then return "tot" end
+    if key == "pet" then return "pet" end
     if key == "party" or key == "group" or key == "p1" then return "party" end
     if key == "raid" or key == "r" then return "raid" end
 end
@@ -940,6 +1042,10 @@ local function UnitMenuForFrame(self, frame)
         if dd and ToggleNativeUnitDropDown(dd) then return true end
     end
 
+    if SafeUnitIsUnit(unit,"pet") and PetFrameDropDown then
+        if ToggleNativeUnitDropDown(PetFrameDropDown) then return true end
+    end
+
     if unit=="target" and TargetFrameDropDown then
         if ToggleNativeUnitDropDown(TargetFrameDropDown) then return true end
     end
@@ -1048,6 +1154,7 @@ function SF:ApplyFrameLayerBase(frame, base)
         end
     end
     if frame.textFrame then frame.textFrame:SetFrameStrata(unitStrata); frame.textFrame:SetFrameLevel(frame.sfLayerBase + 5) end
+    if frame.raidMarkerFrame then frame.raidMarkerFrame:SetFrameStrata(unitStrata); frame.raidMarkerFrame:SetFrameLevel(frame.sfLayerBase + 12) end
     -- Status glows sit above the portrait/art but below the level medallion.
     -- This keeps resting/combat light from shining through the level badge.
     if frame.statusFrame then frame.statusFrame:SetFrameStrata(unitStrata); frame.statusFrame:SetFrameLevel(frame.sfLayerBase + 7) end
@@ -1096,8 +1203,8 @@ function SF:ApplyFrameLayerBase(frame, base)
 end
 
 function SF:RefreshFrameLayers(topKey)
-    local bases = { player = 10, target = 25, tot = 40 }
-    local keys = {"player","target","tot"}
+    local bases = { player = 10, target = 25, tot = 40, pet = 45 }
+    local keys = {"player","target","tot","pet"}
     local i,key,frame
     self.topFrameKey = topKey or self.topFrameKey
     for i=1,table.getn(keys) do
@@ -1274,6 +1381,84 @@ local function MakePortrait(parent, cfg)
     return pf
 end
 
+local RAID_MARKER_TEXTURE="Interface\\TargetingFrame\\UI-RaidTargetingIcons"
+local RAID_MARKER_COORDS={
+    {0.00,0.25,0.00,0.25}, -- Star
+    {0.25,0.50,0.00,0.25}, -- Circle
+    {0.50,0.75,0.00,0.25}, -- Diamond
+    {0.75,1.00,0.00,0.25}, -- Triangle
+    {0.00,0.25,0.25,0.50}, -- Moon
+    {0.25,0.50,0.25,0.50}, -- Square
+    {0.50,0.75,0.25,0.50}, -- Cross
+    {0.75,1.00,0.25,0.50}, -- Skull
+}
+
+local function SetRaidMarkerTexture(tex,index)
+    index=tonumber(index)
+    if not tex or not index or index<1 or index>8 then if tex then tex:Hide() end; return false end
+    tex:SetTexture(RAID_MARKER_TEXTURE)
+    if type(SetRaidTargetIconTexture)=="function" then
+        local ok=pcall(SetRaidTargetIconTexture,tex,index)
+        if ok then tex:Show(); return true end
+    end
+    local c=RAID_MARKER_COORDS[index]
+    tex:SetTexCoord(c[1],c[2],c[3],c[4])
+    tex:Show()
+    return true
+end
+
+function SF:UpdateRaidMarker(frame,testIndex)
+    if not frame or not frame.raidMarker then return end
+
+    local idx=nil
+    if self.testMode and testIndex then
+        idx=testIndex
+    elseif type(GetRaidTargetIndex)=="function" and frame.unit then
+        local ok,v=pcall(GetRaidTargetIndex,frame.unit)
+        if ok then idx=tonumber(v) end
+    end
+
+    if not idx or idx<1 or idx>8 then
+        frame.raidMarker:Hide()
+        return
+    end
+    SetRaidMarkerTexture(frame.raidMarker,idx)
+end
+
+function SF:UpdateCoreRaidMarkers()
+    -- Keep the frequently-visible unit frames current without doing any
+    -- roster rebuilds. GetRaidTargetIndex is a tiny unit-token lookup.
+    self:UpdateRaidMarker(self.player,self.testMode and 1 or nil)
+    self:UpdateRaidMarker(self.target,nil)
+    self:UpdateRaidMarker(self.tot,nil)
+    self:UpdateRaidMarker(self.pet,nil)
+
+    if self.partyFrames then
+        local i
+        for i=1,table.getn(self.partyFrames) do
+            self:UpdateRaidMarker(self.partyFrames[i],nil)
+        end
+    end
+end
+
+function SF:UpdateAllRaidMarkers()
+    self:UpdateCoreRaidMarkers()
+
+    -- Raid frames are only scanned on marker/roster refreshes, never in the
+    -- 0.20-second fallback path. This preserves the party-performance fixes.
+    if self.raidFrames then
+        local i
+        for i=1,table.getn(self.raidFrames) do
+            self:UpdateRaidMarker(self.raidFrames[i],nil)
+        end
+    end
+end
+
+-- Retained for compatibility with older internal call sites.
+function SF:UpdatePlayerRaidMarker()
+    self:UpdateRaidMarker(self.player,self.testMode and 1 or nil)
+end
+
 local function CreateUnitFrame(kind,key,unit,cfg)
     local f=CreateFrame("Frame","SlamFrames_"..kind,UIParent)
     f.unit=unit; f.cfg=cfg; f.frameKey=key; f.layoutScale=1
@@ -1335,6 +1520,25 @@ local function CreateUnitFrame(kind,key,unit,cfg)
 
     f.moveLabel=MakeText(f.textFrame,12,"CENTER")
     f.moveLabel:SetTextColor(1,0.35,0.10); f.moveLabel:Hide()
+
+    if key=="pet" then
+        -- Borderless Blizzard Hunter happiness atlas. The icon itself carries
+        -- the status art; no black backing square is added by SlamFrames.
+        f.petStatusIcon=f.textFrame:CreateTexture(nil,"OVERLAY")
+        f.petStatusIcon:SetTexture("Interface\\PetPaperDollFrame\\UI-PetHappiness")
+        f.petStatusIcon:Hide()
+    end
+
+    if key=="player" or key=="target" or key=="tot" or key=="pet" or key=="party" or key=="raid" then
+        -- Raid-target markers belong to the unit represented by the frame.
+        -- On portrait frames they sit at the exact top-center of the portrait.
+        -- Give the icon its own frame so special portrait artwork cannot cover it.
+        f.raidMarkerFrame=CreateFrame("Frame",nil,f)
+        f.raidMarkerFrame:SetFrameLevel(f:GetFrameLevel()+30)
+        f.raidMarker=f.raidMarkerFrame:CreateTexture(nil,"OVERLAY")
+        f.raidMarker:SetTexture(RAID_MARKER_TEXTURE)
+        f.raidMarker:Hide()
+    end
 
     if f.SetClampedToScreen then f:SetClampedToScreen(true) end
     SetupDrag(f,key)
@@ -1426,14 +1630,54 @@ function SF:LayoutFrame(frame,key,scale)
     frame.portrait:SetZoom(portraitZoom)
     frame.portrait:SetLayout(scale,portraitShift)
 
+    if frame.raidMarker then
+        local markerSize=46*scale
+        local markerX=(cfg.portrait.x+portraitShift)*scale
+        local markerY=(cfg.portrait.y+(cfg.portrait.size*0.5))*scale
+        frame.raidMarkerFrame:ClearAllPoints()
+        frame.raidMarkerFrame:SetPoint("CENTER",frame,"BOTTOMLEFT",markerX,markerY)
+        frame.raidMarkerFrame:SetWidth(markerSize); frame.raidMarkerFrame:SetHeight(markerSize)
+        frame.raidMarker:ClearAllPoints(); frame.raidMarker:SetAllPoints(frame.raidMarkerFrame)
+    end
+
     frame.health:SetLayout(scale,trim)
     if frame.power then
         frame.power:SetLayout(scale,trim)
         if key=="party" and not SlamFramesDB.showPartyPower then frame.power:Hide() end
     end
     LayoutText(frame,scale,trim)
+    if key=="pet" and frame.petStatusIcon then
+        -- Hunter happiness stays independently scalable and can sit in three
+        -- useful places: the original portrait-edge position, just left of
+        -- health, or just right of health. Width presets are respected.
+        local statusScale=Clamp(tonumber(SlamFramesDB.petStatusIconScale) or 2.00,1.00,3.00)
+        local iconSize=16*scale*statusScale
+        local pos=SlamFramesDB.petStatusIconPosition or "portrait"
+        local sx,sy
+        local sideDistance=Clamp(tonumber(SlamFramesDB.petStatusSideDistance) or 0,0,40)
+        if pos=="healthleft" then
+            -- Health Left sits completely outside the Pet Frame. The distance
+            -- slider adds outward spacing without affecting Portrait mode.
+            sx=-(iconSize*0.5)-((5+sideDistance)*scale)
+            sy=(cfg.health.y+(cfg.health.h*0.5))*scale
+        elseif pos=="healthright" then
+            local healthW=math.max(20,cfg.health.w-trim)
+            -- At distance 0, preserve the known-good right-side position. The
+            -- slider pushes the icon farther outward from the health bar.
+            sx=((cfg.health.x+healthW)*scale)+(iconSize*0.5)+((4+sideDistance)*scale)
+            sy=(cfg.health.y+(cfg.health.h*0.5))*scale
+        else
+            -- Portrait is deliberately static and ignores the side slider.
+            sx=64*scale; sy=58*scale
+        end
+        frame.petStatusIcon:ClearAllPoints()
+        frame.petStatusIcon:SetPoint("CENTER",frame,"BOTTOMLEFT",sx,sy)
+        frame.petStatusIcon:SetWidth(iconSize); frame.petStatusIcon:SetHeight(iconSize)
+    end
     if key=="target" then self:LayoutAuras() end
     if key=="player" and self.LayoutPlayerEffects then self:LayoutPlayerEffects() end
+    if key=="player" and self.LayoutComboPointTracker then self:LayoutComboPointTracker() end
+    if key=="pet" and self.LayoutPetEffects then self:LayoutPetEffects() end
     self:ApplyHealthTextMode(frame)
 end
 
@@ -1481,6 +1725,7 @@ local function RelayoutAllText()
         SF:LayoutFrame(SF.player,"player",SlamFramesDB.scales.player or DEFAULT_SCALES.player)
         SF:LayoutFrame(SF.target,"target",SlamFramesDB.scales.target or DEFAULT_SCALES.target)
         SF:LayoutFrame(SF.tot,"tot",SlamFramesDB.scales.tot or DEFAULT_SCALES.tot)
+        if SF.pet then SF:LayoutFrame(SF.pet,"pet",SlamFramesDB.scales.pet or DEFAULT_SCALES.pet) end
         if SF.LayoutPartyFrames then SF:LayoutPartyFrames() end
         if SF.LayoutRaidFrames then SF:LayoutRaidFrames() end
     end
@@ -1574,7 +1819,7 @@ end
 
 function SF:SetPortraitZoom(key,value,quiet)
     key=NormalizeKey(key)
-    if key~="player" and key~="target" and key~="tot" and key~="party" and key~="raid" then return false end
+    if key~="player" and key~="target" and key~="tot" and key~="pet" and key~="party" and key~="raid" then return false end
     value=Clamp(tonumber(value) or 1.00,1.00,1.50)
     value=math.floor(value*100+0.5)/100
     SlamFramesDB.portraitZooms[key]=value
@@ -1601,11 +1846,11 @@ end
 
 function SF:SetWidthPreset(key,value,quiet)
     key=NormalizeKey(key)
-    if key~="player" and key~="target" and key~="tot" and key~="party" and key~="raid" then
-        if not quiet then Print("bar length is adjustable for player, target, target-of-target, party, or raid") end
+    if key~="player" and key~="target" and key~="tot" and key~="pet" and key~="party" and key~="raid" then
+        if not quiet then Print("bar length is adjustable for player, target, target-of-target, pet, party, or raid") end
         return false
     end
-    local cfg=(key=="player") and C.player or ((key=="target") and C.target or ((key=="tot") and C.tot or ((key=="raid") and C.raid or C.party)))
+    local cfg=(key=="player") and C.player or ((key=="target") and C.target or ((key=="tot") and C.tot or ((key=="pet") and C.tot or ((key=="raid") and C.raid or C.party))))
     local maxPreset=(cfg.widthSlices and cfg.widthSlices.maxPreset) or 0
     value=Clamp(math.floor((tonumber(value) or 0)+0.5),0,maxPreset)
     SlamFramesDB.widthPresets[key]=value
@@ -1627,7 +1872,8 @@ function SF:ApplyPositions()
     self:LayoutFrame(self.player,"player",SlamFramesDB.scales.player or DEFAULT_SCALES.player)
     self:LayoutFrame(self.target,"target",SlamFramesDB.scales.target or DEFAULT_SCALES.target)
     self:LayoutFrame(self.tot,"tot",SlamFramesDB.scales.tot or DEFAULT_SCALES.tot)
-    ApplyAnchor(self.player,"player"); ApplyAnchor(self.target,"target"); ApplyAnchor(self.tot,"tot")
+    if self.pet then self:LayoutFrame(self.pet,"pet",SlamFramesDB.scales.pet or DEFAULT_SCALES.pet) end
+    ApplyAnchor(self.player,"player"); ApplyAnchor(self.target,"target"); ApplyAnchor(self.tot,"tot"); if self.pet then ApplyAnchor(self.pet,"pet") end
     self:LayoutPartyFrames()
     if self.LayoutRaidFrames then self:LayoutRaidFrames() end
     self:RefreshFrameLayers(self.topFrameKey)
@@ -1635,7 +1881,7 @@ end
 
 function SF:UpdateMoveLabels()
     local _,key,f
-    for _,key in pairs({"player","target","tot"}) do
+    for _,key in pairs({"player","target","tot","pet"}) do
         f=FrameForKey(key)
         if f and f.moveLabel then
             f.moveLabel:SetText(string.upper(key).."  "..string.format("%.2f",SlamFramesDB.scales[key] or DEFAULT_SCALES[key]).."x")
@@ -1672,7 +1918,7 @@ end
 
 function SF:SetSmoothBars(enabled)
     SlamFramesDB.smoothBars=enabled and true or false
-    local frames={self.player,self.target,self.tot}
+    local frames={self.player,self.target,self.tot,self.pet}
     local i,f
     if self.partyFrames then for i=1,table.getn(self.partyFrames) do table.insert(frames,self.partyFrames[i]) end end
     if self.raidFrames then for i=1,table.getn(self.raidFrames) do table.insert(frames,self.raidFrames[i]) end end
@@ -1930,7 +2176,7 @@ function SF:UpdatePlayer()
     if f.power then local r,g,b=PowerColor("player"); f.power:SetFillColor(r,g,b,1); f.power:SetValue(pcur,pmax,self.testMode); SetPowerText(f,pcur,pmax) end
     f.name:SetText(self.testMode and "Cenotaph" or (UnitName("player") or "Player"))
     SetLevelIndicator(f,"player",80,false)
-    UpdatePortrait(f); f:Show()
+    UpdatePortrait(f); self:UpdatePlayerRaidMarker(); f:Show()
 end
 
 function SF:UpdateTarget()
@@ -1957,6 +2203,196 @@ function SF:UpdateTargetOfTarget()
     f.health:SetValue(cur,maxv,self.testMode); SetHealthTexts(f,cur,maxv)
     f.name:SetText(UnitDisplayName("targettarget","Ragepaw Worg")); SetLevelIndicator(f,"targettarget",82,true)
     UpdatePortrait(f); f:Show()
+end
+
+
+local function PetAlertMessage(message,r,g,b,urgent)
+    if urgent and RaidWarningFrame and RaidWarningFrame.AddMessage then
+        RaidWarningFrame:AddMessage(message,r,g,b,1.0)
+    elseif UIErrorsFrame and UIErrorsFrame.AddMessage then
+        UIErrorsFrame:AddMessage(message,r,g,b,1.0)
+    elseif DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+        DEFAULT_CHAT_FRAME:AddMessage(message,r,g,b)
+    end
+end
+
+function SF:TriggerPetHappinessAlert(happiness,force)
+    happiness=tonumber(happiness)
+    if happiness~=1 and happiness~=2 then return end
+    if not force and not SlamFramesDB.petHappinessAlerts then return end
+    local petName=(type(UnitName)=="function" and UnitName("pet")) or "Pet"
+    if not petName or petName=="" then petName="Pet" end
+    if happiness==2 then
+        PetAlertMessage("PET HAPPINESS: YELLOW - Feed "..petName.." Soon.",1.00,0.82,0.00,false)
+        if type(PlaySound)=="function" then pcall(PlaySound,"TellMessage") end
+    else
+        PetAlertMessage("PET HAPPINESS: RED - FEED "..string.upper(petName).." NOW!",1.00,0.12,0.08,true)
+        if type(PlaySound)=="function" then pcall(PlaySound,"RaidWarning") end
+        if SlamFramesDB.petHappinessTaskbarFlash and type(FlashClientIcon)=="function" then
+            pcall(FlashClientIcon)
+        end
+    end
+end
+
+function SF:TrackPetHappiness(happiness,isHunterPet)
+    if not happiness or isHunterPet==false or happiness<1 or happiness>3 then
+        self.lastPetHappiness=nil
+        return
+    end
+    local old=self.lastPetHappiness
+    self.lastPetHappiness=happiness
+    -- First read establishes the baseline. Alerts are transition-based so a
+    -- reload/summon does not immediately yell at the player for existing state.
+    if not old or old==happiness then return end
+    if happiness==2 or happiness==1 then self:TriggerPetHappinessAlert(happiness,false) end
+end
+
+function SF:UpdatePetStatusIcon()
+    local f=self.pet
+    if not f or not f.petStatusIcon then return end
+    if not UnitExists("pet") then
+        self.lastPetHappiness=nil
+        f.petStatusIcon:Hide()
+        return
+    end
+    local happiness=nil
+    local isHunterPet=nil
+    if type(GetPetHappiness)=="function" then happiness=GetPetHappiness() end
+    if type(HasPetUI)=="function" then
+        local hasPetUI
+        hasPetUI,isHunterPet=HasPetUI()
+    end
+    self:TrackPetHappiness(happiness,isHunterPet)
+    if not SlamFramesDB.showPetFrame or not SlamFramesDB.showHunterPetStatusIcon then
+        f.petStatusIcon:Hide()
+        return
+    end
+    if not happiness or isHunterPet==false or happiness<1 or happiness>3 then
+        f.petStatusIcon:Hide()
+        return
+    end
+    if happiness==1 then
+        f.petStatusIcon:SetTexCoord(0.375,0.5625,0,0.359375)
+    elseif happiness==2 then
+        f.petStatusIcon:SetTexCoord(0.1875,0.375,0,0.359375)
+    else
+        f.petStatusIcon:SetTexCoord(0,0.1875,0,0.359375)
+    end
+    f.petStatusIcon:Show()
+end
+
+function SF:UpdatePet()
+    local f=self.pet; if not f then return end
+    f.unit="pet"
+    if not SlamFramesDB.showPetFrame then f:Hide(); return end
+    if not UnitExists("pet") and not self.testMode then f:Hide(); return end
+
+    local cur,maxv
+    if self.testMode and not UnitExists("pet") then cur,maxv=2810,3500 else cur=UnitHealth("pet") or 0; maxv=UnitHealthMax("pet") or 1 end
+    f.health:SetValue(cur,maxv,self.testMode)
+    SetHealthTexts(f,cur,maxv)
+    f.name:SetText(UnitDisplayName("pet","Pet Companion"))
+    SetLevelIndicator(f,"pet",math.max(1,(UnitLevel("player") or 60)-1),false)
+    UpdatePortrait(f)
+    self:UpdatePetStatusIcon()
+    f:Show()
+end
+
+function SF:UpdatePetHealth()
+    local f=self.pet; if not f then return end
+    if not SlamFramesDB.showPetFrame then f:Hide(); return end
+    if not UnitExists("pet") and not self.testMode then f:Hide(); return end
+    local cur,maxv
+    if self.testMode and not UnitExists("pet") then cur,maxv=2810,3500 else cur=UnitHealth("pet") or 0; maxv=UnitHealthMax("pet") or 1 end
+    f.health:SetValue(cur,maxv,self.testMode)
+    SetHealthTexts(f,cur,maxv)
+    self:UpdatePetStatusIcon()
+    f:Show()
+end
+
+function SF:SetPetFrameEnabled(v,quiet)
+    SlamFramesDB.showPetFrame=v and true or false
+    self:UpdatePet()
+    if self.UpdatePetEatingState then self:UpdatePetEatingState(true) end
+    if self.UpdateBlizzardPetFrame then self:UpdateBlizzardPetFrame() end
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("pet frame "..(SlamFramesDB.showPetFrame and "ON" or "OFF")) end
+end
+
+function SF:SetHunterPetStatusIconEnabled(v,quiet)
+    SlamFramesDB.showHunterPetStatusIcon=v and true or false
+    self:UpdatePetStatusIcon()
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("hunter pet status icon "..(SlamFramesDB.showHunterPetStatusIcon and "ON" or "OFF")) end
+end
+
+function SF:SetPetStatusIconScale(value,quiet)
+    value=Clamp(tonumber(value) or 2.00,1.00,3.00)
+    value=math.floor(value*4+0.5)/4
+    SlamFramesDB.petStatusIconScale=value
+    if self.pet then self:LayoutFrame(self.pet,"pet",SlamFramesDB.scales.pet or DEFAULT_SCALES.pet) end
+    self:UpdatePetStatusIcon()
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("pet status icon scale set to "..tostring(math.floor(value*100+0.5)).."%") end
+    return true
+end
+
+function SF:SetPetStatusIconPosition(value,quiet)
+    value=string.lower(tostring(value or "portrait"))
+    if value=="left" then value="healthleft" end
+    if value=="right" then value="healthright" end
+    if value~="portrait" and value~="healthleft" and value~="healthright" then return false end
+    SlamFramesDB.petStatusIconPosition=value
+    if self.pet then self:LayoutFrame(self.pet,"pet",SlamFramesDB.scales.pet or DEFAULT_SCALES.pet) end
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("pet status icon position set to "..value) end
+    return true
+end
+
+function SF:CyclePetStatusIconPosition(quiet)
+    local cur=SlamFramesDB.petStatusIconPosition or "portrait"
+    local nextPos="healthleft"
+    if cur=="healthleft" then nextPos="healthright" elseif cur=="healthright" then nextPos="portrait" end
+    return self:SetPetStatusIconPosition(nextPos,quiet)
+end
+
+function SF:SetPetStatusSideDistance(value,quiet)
+    value=Clamp(tonumber(value) or 0,0,40)
+    value=math.floor(value+0.5)
+    SlamFramesDB.petStatusSideDistance=value
+    if self.pet then self:LayoutFrame(self.pet,"pet",SlamFramesDB.scales.pet or DEFAULT_SCALES.pet) end
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("pet status side distance set to "..tostring(value)) end
+    return true
+end
+
+function SF:SetPetHappinessAlertsEnabled(v,quiet)
+    SlamFramesDB.petHappinessAlerts=v and true or false
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("pet happiness alerts "..(SlamFramesDB.petHappinessAlerts and "ON" or "OFF")) end
+end
+
+function SF:SetPetHappinessTaskbarFlashEnabled(v,quiet)
+    SlamFramesDB.petHappinessTaskbarFlash=v and true or false
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("red pet taskbar flash "..(SlamFramesDB.petHappinessTaskbarFlash and "ON" or "OFF")) end
+end
+
+function SF:SetPetFeedingGlowEnabled(v,quiet)
+    SlamFramesDB.showPetFeedingGlow=v and true or false
+    if self.UpdatePetEatingState then self:UpdatePetEatingState(true) end
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("pet feeding glow "..(SlamFramesDB.showPetFeedingGlow and "ON" or "OFF")) end
+end
+
+function SF:ResetPetPosition()
+    SlamFramesDB.anchors.pet=CopyAnchor(DEFAULT_ANCHORS.pet)
+    SlamFramesDB.scales.pet=DEFAULT_SCALES.pet
+    if SlamFramesDB.widthPresets then SlamFramesDB.widthPresets.pet=(MASTER_DEFAULT_PROFILE.widthPresets.pet or 1) end
+    if SlamFramesDB.portraitZooms then SlamFramesDB.portraitZooms.pet=(MASTER_DEFAULT_PROFILE.portraitZooms.pet or 1.00) end
+    if self.pet then self:LayoutFrame(self.pet,"pet",SlamFramesDB.scales.pet or DEFAULT_SCALES.pet); ApplyAnchor(self.pet,"pet") end
+    if self.RefreshSettings then self:RefreshSettings() end
+    Print("pet frame position reset.")
 end
 
 function SF:IsInRaidGroup()
@@ -2845,11 +3281,32 @@ function SF:UpdateBlizzardPartyFrames()
     end
 end
 
+function SF:UpdateBlizzardPetFrame()
+    if not PetFrame then return end
+    local suppress=SlamFramesDB and SlamFramesDB.hideBlizzard and SlamFramesDB.showPetFrame
+    if suppress then
+        if not PetFrame.sfSlamFramesSuppressed then
+            if PetFrame.sfSlamFramesOldAlpha==nil and PetFrame.GetAlpha then PetFrame.sfSlamFramesOldAlpha=PetFrame:GetAlpha() end
+            if PetFrame.sfSlamFramesOldMouse==nil and PetFrame.IsMouseEnabled then PetFrame.sfSlamFramesOldMouse=PetFrame:IsMouseEnabled() end
+            PetFrame:SetAlpha(0)
+            PetFrame:EnableMouse(false)
+            PetFrame:Hide()
+            PetFrame.sfSlamFramesSuppressed=true
+        end
+    elseif PetFrame.sfSlamFramesSuppressed then
+        if PetFrame.sfSlamFramesOldAlpha~=nil then PetFrame:SetAlpha(PetFrame.sfSlamFramesOldAlpha); PetFrame.sfSlamFramesOldAlpha=nil else PetFrame:SetAlpha(1) end
+        if PetFrame.sfSlamFramesOldMouse~=nil then PetFrame:EnableMouse(PetFrame.sfSlamFramesOldMouse and true or false); PetFrame.sfSlamFramesOldMouse=nil else PetFrame:EnableMouse(true) end
+        PetFrame.sfSlamFramesSuppressed=nil
+        if UnitExists("pet") and PetFrame.Show then PetFrame:Show() end
+    end
+end
+
 function SF:HideBlizzardFrames()
     if SlamFramesDB.hideBlizzard then
         HardHide(PlayerFrame); HardHide(TargetFrame); if TargetofTargetFrame then HardHide(TargetofTargetFrame) end
     end
     self:UpdateBlizzardPartyFrames()
+    self:UpdateBlizzardPetFrame()
 end
 
 function SF:SetLocked(v)
@@ -2859,134 +3316,70 @@ function SF:SetLocked(v)
     if SlamFramesDB.locked then
         Print("locked. Left-click party frames targets the member; right-click opens the normal unit menu.")
     else
-        Print("unlocked. Drag PLAYER, TARGET, TOT, or any PARTY frame; party members move as one group. Mouse-wheel a frame to resize it.")
+        Print("unlocked. Drag PLAYER, TARGET, TOT, PET, or any PARTY frame; party members move as one group. Mouse-wheel a frame to resize it.")
     end
 end
 
 function SF:Reset(key)
     key=NormalizeKey(key)
     if key then
-        SlamFramesDB.anchors[key]=CopyAnchor(DEFAULT_ANCHORS[key]); SlamFramesDB.scales[key]=DEFAULT_SCALES[key]
-        if SlamFramesDB.widthPresets and (key=="player" or key=="target" or key=="tot" or key=="party") then SlamFramesDB.widthPresets[key]=1 end
-        if SlamFramesDB.portraitZooms then
-            if key=="tot" or key=="party" then SlamFramesDB.portraitZooms[key]=1.08 else SlamFramesDB.portraitZooms[key]=1.00 end
+        local defaultAnchor=MASTER_DEFAULT_PROFILE.anchors and MASTER_DEFAULT_PROFILE.anchors[key]
+        local defaultScale=MASTER_DEFAULT_PROFILE.scales and MASTER_DEFAULT_PROFILE.scales[key]
+        if defaultAnchor then SlamFramesDB.anchors[key]=CopyAnchor(defaultAnchor) end
+        if defaultScale then SlamFramesDB.scales[key]=defaultScale end
+        if SlamFramesDB.widthPresets and MASTER_DEFAULT_PROFILE.widthPresets and MASTER_DEFAULT_PROFILE.widthPresets[key]~=nil then
+            SlamFramesDB.widthPresets[key]=MASTER_DEFAULT_PROFILE.widthPresets[key]
+        end
+        if SlamFramesDB.portraitZooms and MASTER_DEFAULT_PROFILE.portraitZooms and MASTER_DEFAULT_PROFILE.portraitZooms[key]~=nil then
+            SlamFramesDB.portraitZooms[key]=MASTER_DEFAULT_PROFILE.portraitZooms[key]
         end
         if key=="party" then
-            SlamFramesDB.partyNameOffset=0; SlamFramesDB.partySpacing=8
+            SlamFramesDB.partyNameOffset=MASTER_DEFAULT_PROFILE.partyNameOffset or 0
+            SlamFramesDB.partySpacing=MASTER_DEFAULT_PROFILE.partySpacing or 8
             self:LayoutPartyFrames()
+        elseif key=="pet" then
+            if self.pet then self:LayoutFrame(self.pet,"pet",SlamFramesDB.scales.pet or DEFAULT_SCALES.pet); ApplyAnchor(self.pet,"pet") end
+        elseif key=="raid" then
+            if self.LayoutRaidFrames then self:LayoutRaidFrames() end
+            if self.ResetRaidPosition and defaultAnchor then
+                -- LayoutRaidFrames reads the freshly restored master anchor.
+                self:ResetRaidPosition()
+                SlamFramesDB.anchors.raid=CopyAnchor(defaultAnchor)
+                if self.LayoutRaidFrames then self:LayoutRaidFrames() end
+            end
         else
-            local f=FrameForKey(key); if f then self:LayoutFrame(f,key,DEFAULT_SCALES[key]); ApplyAnchor(f,key) end
+            local f=FrameForKey(key); if f then self:LayoutFrame(f,key,SlamFramesDB.scales[key] or DEFAULT_SCALES[key]); ApplyAnchor(f,key) end
         end
         self:UpdateMoveLabels(); if self.RefreshSettings then self:RefreshSettings() end; Print(key.." reset to the SlamFrames default profile."); return
     end
-    SlamFramesDB.anchors.player=CopyAnchor(DEFAULT_ANCHORS.player); SlamFramesDB.anchors.target=CopyAnchor(DEFAULT_ANCHORS.target); SlamFramesDB.anchors.tot=CopyAnchor(DEFAULT_ANCHORS.tot); SlamFramesDB.anchors.party=CopyAnchor(DEFAULT_ANCHORS.party)
-    SlamFramesDB.scales.player=DEFAULT_SCALES.player; SlamFramesDB.scales.target=DEFAULT_SCALES.target; SlamFramesDB.scales.tot=DEFAULT_SCALES.tot; SlamFramesDB.scales.party=DEFAULT_SCALES.party; SlamFramesDB.scales.raid=DEFAULT_SCALES.raid
-    SlamFramesDB.locked=true
-    SlamFramesDB.hideBlizzard=true
-    SlamFramesDB.showAuras=true
-    SlamFramesDB.smoothBars=true
-    SlamFramesDB.healthTextMode="amount"
-    SlamFramesDB.totHealthTextMode="percent"
-    SlamFramesDB.partyHealthTextMode="percent"
-    SlamFramesDB.showPartyFrames=true
-    SlamFramesDB.partyHideInRaid=true
-    SlamFramesDB.partySpacing=8
-    SlamFramesDB.partyNameOffset=0
-    SlamFramesDB.showRaidFrames=true
-    SlamFramesDB.raidHealthTextMode="percent"
-    SlamFramesDB.raidSpacing=4
-    SlamFramesDB.raidGroupSpacing=10
-    SlamFramesDB.raidGroupRowSpacing=36
-    SlamFramesDB.raidGroupsPerRow=8
-    SlamFramesDB.raidNameOffset=0
-    SlamFramesDB.raidShowGroupHeaders=true
-    SlamFramesDB.raidCompactMode=false
-    SlamFramesDB.raidOpacity=1.00
-    SlamFramesDB.raidClassColoredNames=false
-    SlamFramesDB.raidPreviewSize=20
-    SlamFramesDB.raidPreviewDebuffs=false
-    SlamFramesDB.raidDebuffGlowSize=2
-    SlamFramesDB.raidPreviewMainTanks=false
-    SlamFramesDB.clickCastingEnabled=false
-    SlamFramesDB.clickCastingApplyNormal=false
-    SlamFramesDB.clickCastingTooltip=true
-    SlamFramesDB.clickBindings={
-        LeftButton={mode="base",base="target",spell=""},
-        RightButton={mode="base",base="menu",spell=""},
-        MiddleButton={mode="base",base="none",spell=""},
-    }
-    -- Factory click-casting defaults intentionally contain no spell or item names.
-    -- Resetting the addon must clear the newer modifier-aware binding table too,
-    -- otherwise an old left-click spell can survive a Reset All operation.
-    SlamFramesDB.clickBindingSets={
-        none={
-            LeftButton={action="normal",spell=""},
-            RightButton={action="normal",spell=""},
-            MiddleButton={action="normal",spell=""},
-        },
-        shift={
-            LeftButton={action="normal",spell=""},
-            RightButton={action="normal",spell=""},
-            MiddleButton={action="normal",spell=""},
-        },
-        ctrl={
-            LeftButton={action="normal",spell=""},
-            RightButton={action="normal",spell=""},
-            MiddleButton={action="normal",spell=""},
-        },
-        alt={
-            LeftButton={action="normal",spell=""},
-            RightButton={action="normal",spell=""},
-            MiddleButton={action="normal",spell=""},
-        },
-    }
-    SlamFramesDB.partyDebuffAlerts=true
-    SlamFramesDB.partyDebuffOnlyDispellable=true
-    SlamFramesDB.partyDebuffMessage=true
-    SlamFramesDB.partyDebuffSound=false
-    SlamFramesDB.showPowerNumbers=true
-    SlamFramesDB.showRestingEffect=true
-    SlamFramesDB.showCCEffect=true
-    SlamFramesDB.showCombatGlow=true
-    SlamFramesDB.selfTargetOnClick=true
-    SlamFramesDB.skin="dark"
-    SlamFramesDB.nameTextScale=1.30
-    SlamFramesDB.healthTextScale=1.80
-    SlamFramesDB.powerTextScale=1.30
-    SlamFramesDB.levelTextScale=1.00
-    SlamFramesDB.textScale=nil
-    SlamFramesDB.auraScale=1.30
-    SlamFramesDB.auraRowSpacing=1.00
-    SlamFramesDB.auraShowCooldownSweep=false
-    SlamFramesDB.auraShowTimerText=true
-    SlamFramesDB.auraTimerTextScale=1.00
-    SlamFramesDB.widthPresets={player=1,target=1,tot=1,party=1,raid=1}
-    SlamFramesDB.portraitZooms={player=1.00,target=1.00,tot=1.08,party=1.08,raid=1.08}
-    SlamFramesDB.ccAnchor={x=-35.55593730832338,y=73.98975554593724}
-    SlamFramesDB.combatGlowIntensity=1.30
-    SlamFramesDB.showMinimapButton=true
-    SlamFramesDB.minimapAngle=-0.4897411260673095
-    SlamFramesDB.minimapRadius=80
-    SlamFramesDB.showPlayerCastbar=true
-    SlamFramesDB.hideBlizzardCastbar=true
-    SlamFramesDB.hideBlizzardErrorText=false
-    SlamFramesDB.castbarShowIcon=true
-    SlamFramesDB.castbarShowTimer=true
-    SlamFramesDB.castbarShowLatency=true
-    SlamFramesDB.castbarScale=0.80
-    SlamFramesDB.castbarWidth=360
-    SlamFramesDB.castbarStyle=1
-    SlamFramesDB.castbarAnchor={x=-18.33375010796635,y=-240.8081150486736}
+
+    -- Reset All is a true factory reset to the author's Calamus master profile.
+    -- Keep the active per-character table identity intact so SavedVariables and
+    -- every module continue referencing the same object.
+    local characterLabel=SlamFramesDB.__sfCharacter or GetCharacterProfileLabel()
+    local k
+    for k in pairs(SlamFramesDB) do SlamFramesDB[k]=nil end
+    local fresh=DeepCopyTable(MASTER_DEFAULT_PROFILE)
+    local v
+    for k,v in pairs(fresh) do SlamFramesDB[k]=v end
+    SlamFramesDB.__sfPerCharacter=true
+    SlamFramesDB.__sfCharacter=characterLabel
+    SlamFramesDB.dbVersion=28
+    self.testMode=false
+
     self:ApplyPositions()
     if self.ApplySkin then self:ApplySkin(true) end
     if self.UpdateMinimapButtonPosition then self:UpdateMinimapButtonPosition() end
-    if self.SetMinimapButtonShown then self:SetMinimapButtonShown(true) end
+    if self.SetMinimapButtonShown then self:SetMinimapButtonShown(SlamFramesDB.showMinimapButton) end
     if self.castbar and self.LayoutCastBar then self:LayoutCastBar() end
     if self.ApplyBlizzardErrorTextSetting then self:ApplyBlizzardErrorTextSetting() end
     if self.UpdatePlayerEffects then self:UpdatePlayerEffects(true) end
+    if self.UpdatePetEatingState then self:UpdatePetEatingState(true) end
     if self.HideBlizzardFrames then self:HideBlizzardFrames() end
+    if self.LayoutRaidFrames then self:LayoutRaidFrames() end
     self:RefreshAll()
-    self:UpdateMoveLabels(); if self.RefreshSettings then self:RefreshSettings() end; Print("SlamFrames reset to the default profile.")
+    self:UpdateMoveLabels(); if self.RefreshSettings then self:RefreshSettings() end
+    Print("SlamFrames settings reset to defaults.")
 end
 
 function SF:ApplyBlizzardErrorTextSetting()
@@ -3018,6 +3411,7 @@ function SF:CreateFrames()
     self.player=CreateUnitFrame("Player","player","player",cfgs.player or C.player)
     self.target=CreateUnitFrame("Target","target","target",cfgs.target or C.target)
     self.tot=CreateUnitFrame("ToT","tot","targettarget",cfgs.tot or C.tot)
+    self.pet=CreateUnitFrame("Pet","pet","pet",cfgs.pet or cfgs.tot or C.tot)
     self.partyFrames={}
     local i
     for i=1,4 do
@@ -3029,24 +3423,24 @@ function SF:CreateFrames()
     self:CreateAuras(); self:ApplyPositions(); self:RefreshFrameLayers(); self:UpdateMoveLabels(); self:SetSmoothBars(SlamFramesDB.smoothBars)
 end
 
-function SF:RefreshAll() self:UpdatePlayer(); self:UpdateTarget(); self:UpdatePartyFrames(); if self.UpdateRaidFrames then self:UpdateRaidFrames() end; self:UpdateBlizzardPartyFrames(); if self.UpdatePartyDebuffAlerts then self:UpdatePartyDebuffAlerts() end end
+function SF:RefreshAll() self:UpdatePlayer(); self:UpdateTarget(); self:UpdatePet(); self:UpdatePartyFrames(); if self.UpdateRaidFrames then self:UpdateRaidFrames() end; self:UpdateBlizzardPartyFrames(); if self.UpdatePartyDebuffAlerts then self:UpdatePartyDebuffAlerts() end end
 
 local function HandleScale(rest)
     local s,e,first,second=string.find(rest or "","^%s*(%S+)%s*(%S*)%s*$")
     first=first or ""; second=second or ""
     local n=tonumber(first)
-    if n then SF:SetFrameScale("player",n,true); SF:SetFrameScale("target",n,true); SF:SetFrameScale("tot",n,true); SF:SetFrameScale("party",n,true); Print("all frame scales set to "..string.format("%.2f",Clamp(n,0.40,3.00))); return end
+    if n then SF:SetFrameScale("player",n,true); SF:SetFrameScale("target",n,true); SF:SetFrameScale("tot",n,true); SF:SetFrameScale("pet",n,true); SF:SetFrameScale("party",n,true); Print("all frame scales set to "..string.format("%.2f",Clamp(n,0.40,3.00))); return end
     local key=NormalizeKey(first); n=tonumber(second)
     if key and n then SF:SetFrameScale(key,n,false); return end
-    Print("usage: /sf scale 0.60 OR /sf scale player|target|tot|party 0.60")
+    Print("usage: /sf scale 0.60 OR /sf scale player|target|tot|pet|party 0.60")
 end
 
 local function HandleWidth(rest)
     local s,e,first,second=string.find(rest or "","^%s*(%S+)%s*(%S*)%s*$")
     local key=NormalizeKey(first or "")
     local n=tonumber(second)
-    if not key or (key~="player" and key~="target" and key~="tot" and key~="party") or not n then
-        Print("usage: /sf width player|target|tot|party 0-3 (0=100%, 1=~90%, 2=~80%, 3=~70%)")
+    if not key or (key~="player" and key~="target" and key~="tot" and key~="pet" and key~="party") or not n then
+        Print("usage: /sf width player|target|tot|pet|party 0-3 (0=100%, 1=~90%, 2=~80%, 3=~70%)")
         return
     end
     -- Also accept the visible percentage values for convenience.
@@ -3078,6 +3472,52 @@ function SF:HandleSlash(msg)
         elseif v=="off" then self:SetPartyFramesEnabled(false,false)
         elseif v=="reset" then self:Reset("party")
         else self:SetPartyFramesEnabled(not SlamFramesDB.showPartyFrames,false) end
+    elseif cmd=="pet" then
+        local v=string.lower(rest or "")
+        if v=="on" then self:SetPetFrameEnabled(true,false)
+        elseif v=="off" then self:SetPetFrameEnabled(false,false)
+        elseif v=="reset" then self:ResetPetPosition()
+        else self:SetPetFrameEnabled(not SlamFramesDB.showPetFrame,false) end
+    elseif cmd=="petstatus" then
+        local v=string.lower(rest or "")
+        if v=="on" then self:SetHunterPetStatusIconEnabled(true,false)
+        elseif v=="off" then self:SetHunterPetStatusIconEnabled(false,false)
+        else self:SetHunterPetStatusIconEnabled(not SlamFramesDB.showHunterPetStatusIcon,false) end
+    elseif cmd=="petstatusscale" then
+        local n=tonumber(rest)
+        if n then self:SetPetStatusIconScale(n,false) else Print("usage: /sf petstatusscale 1.00-3.00") end
+    elseif cmd=="petstatuspos" then
+        local v=string.lower(rest or "")
+        if v=="portrait" or v=="left" or v=="right" or v=="healthleft" or v=="healthright" then
+            self:SetPetStatusIconPosition(v,false)
+        else
+            Print("usage: /sf petstatuspos portrait | left | right")
+        end
+    elseif cmd=="petstatusdistance" or cmd=="petstatusgap" then
+        local n=tonumber(rest)
+        if n then self:SetPetStatusSideDistance(n,false) else Print("usage: /sf petstatusdistance 0-40") end
+    elseif cmd=="petfeedglow" then
+        local v=string.lower(rest or "")
+        if v=="on" then self:SetPetFeedingGlowEnabled(true,false)
+        elseif v=="off" then self:SetPetFeedingGlowEnabled(false,false)
+        else self:SetPetFeedingGlowEnabled(not SlamFramesDB.showPetFeedingGlow,false) end
+    elseif cmd=="petalerts" then
+        local v=string.lower(rest or "")
+        if v=="on" then self:SetPetHappinessAlertsEnabled(true,false)
+        elseif v=="off" then self:SetPetHappinessAlertsEnabled(false,false)
+        else self:SetPetHappinessAlertsEnabled(not SlamFramesDB.petHappinessAlerts,false) end
+    elseif cmd=="petflash" then
+        local v=string.lower(rest or "")
+        if v=="on" then self:SetPetHappinessTaskbarFlashEnabled(true,false)
+        elseif v=="off" then self:SetPetHappinessTaskbarFlashEnabled(false,false)
+        else self:SetPetHappinessTaskbarFlashEnabled(not SlamFramesDB.petHappinessTaskbarFlash,false) end
+    elseif cmd=="petalerttest" then
+        local v=string.lower(rest or "")
+        if v=="yellow" or v=="2" then self:TriggerPetHappinessAlert(2,true)
+        elseif v=="red" or v=="1" then self:TriggerPetHappinessAlert(1,true)
+        else Print("usage: /sf petalerttest yellow | red") end
+    elseif cmd=="petalertdiag" then
+        Print("pet alert diag: alerts="..tostring(SlamFramesDB.petHappinessAlerts).." redFlash="..tostring(SlamFramesDB.petHappinessTaskbarFlash).." FlashClientIcon="..tostring(type(FlashClientIcon)))
     elseif cmd=="partyraid" then
         local v=string.lower(rest or "")
         if v=="show" or v=="off" then self:SetPartyHideInRaid(false,false)
@@ -3103,6 +3543,8 @@ function SF:HandleSlash(msg)
     elseif cmd=="textscale" then local n=tonumber(rest); if n then self:SetTextScale(n,false) else Print("usage: /sf textscale 1.00 (legacy: sets all text)") end
     elseif cmd=="aurascale" then local n=tonumber(rest); if n then self:SetAuraScale(n,false) else Print("usage: /sf aurascale 1.00") end
     elseif cmd=="aurarowgap" or cmd=="aurarowspacing" then local n=tonumber(rest); if n then self:SetAuraRowSpacing(n,false) else Print("usage: /sf aurarowgap 1.0") end
+    elseif cmd=="clickreset" or cmd=="clickbindreset" then
+        if self.ResetClickBindings then self:ResetClickBindings(false) end
     elseif cmd=="clickdebug" then
         if self.SetClickCastDebug then self:SetClickCastDebug(not self.clickCastDebug,false)
         else Print("click-cast debug is unavailable.") end
@@ -3148,7 +3590,7 @@ function SF:HandleSlash(msg)
     elseif cmd=="portraitzoom" then
         local key,val=string.match(rest or "","^%s*(%S+)%s+(%S+)%s*$")
         val=tonumber(val)
-        if not key or not val or not self:SetPortraitZoom(key,val,true) then Print("usage: /sf portraitzoom player|target|tot|party 1.00-1.50")
+        if not key or not val or not self:SetPortraitZoom(key,val,true) then Print("usage: /sf portraitzoom player|target|tot|pet|party 1.00-1.50")
         else Print(NormalizeKey(key).." portrait zoom set to "..string.format("%.2f",Clamp(val,1.00,1.50))) end
     elseif cmd=="totrelative" then
         self:ResetToTRelative()
@@ -3208,7 +3650,7 @@ function SF:HandleSlash(msg)
         else Print("usage: /sf skin light | dark") end
     elseif cmd=="settings" then if self.ToggleSettings then self:ToggleSettings() end
     elseif cmd=="blizz" then SlamFramesDB.hideBlizzard=not SlamFramesDB.hideBlizzard; Print("hide Blizzard frames is now "..(SlamFramesDB.hideBlizzard and "ON" or "OFF")..". /reload to apply.")
-    else Print("commands: /sf settings | skin light/dark | castbar on/off/move/reset/test | unlock | lock | scale [player/target/tot/party] 0.60 | width [player/target/tot/party] 0-3 | portraitzoom [player/target/tot/party] 1.00-1.50 | totrelative | ccmove | ccreset | nametext 1.30 | healthtextscale 1.00 | powertextscale 1.00 | leveltextscale 1.00 | aurascale 1.00 | aurarowgap 1.0 | auratimer on/off | auratimerscale 1.00 | auradiag | combatglow on/off | combatglowstrength 0.50-2.00 | minimap on/off/reset | reset [player/target/tot/party] | health percent/amount/both/off | tothealth percent/amount | party on/off/reset | partypower on/off | partyhealth percent/amount/off | partynamex -150..150 | partyspacing 0-40 | partyraid hide/show | selftarget on/off | power | test | auras | smooth | blizz") end
+    else Print("commands: /sf settings | skin light/dark | castbar on/off/move/reset/test | unlock | lock | scale [player/target/tot/pet/party] 0.60 | width [player/target/tot/pet/party] 0-3 | portraitzoom [player/target/tot/pet/party] 1.00-1.50 | totrelative | ccmove | ccreset | nametext 1.30 | healthtextscale 1.00 | powertextscale 1.00 | leveltextscale 1.00 | aurascale 1.00 | aurarowgap 1.0 | auratimer on/off | auratimerscale 1.00 | auradiag | combatglow on/off | combatglowstrength 0.50-2.00 | minimap on/off/reset | reset [player/target/tot/pet/party] | pet on/off/reset | petstatus on/off | petstatusscale 1.00-3.00 | petstatuspos portrait/left/right | petstatusdistance 0-40 | petfeedglow on/off | petalerts on/off | petflash on/off | petalerttest yellow/red | petalertdiag | health percent/amount/both/off | tothealth percent/amount | party on/off/reset | partypower on/off | partyhealth percent/amount/off | partynamex -150..150 | partyspacing 0-40 | partyraid hide/show | selftarget on/off | power | test | auras | smooth | blizz") end
 end
 
 local eventFrame=CreateFrame("Frame","SlamFrames_EventFrame",UIParent)
@@ -3236,7 +3678,10 @@ eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("PARTY_MEMBERS_CHANGED")
 eventFrame:RegisterEvent("PARTY_LEADER_CHANGED")
 eventFrame:RegisterEvent("RAID_ROSTER_UPDATE")
+pcall(function() eventFrame:RegisterEvent("RAID_TARGET_UPDATE") end)
 eventFrame:RegisterEvent("SPELLS_CHANGED")
+pcall(function() eventFrame:RegisterEvent("UNIT_PET") end)
+pcall(function() eventFrame:RegisterEvent("UNIT_HAPPINESS") end)
 
 local function RegisterAuraTimingEvent(name)
     local ok=pcall(function() eventFrame:RegisterEvent(name) end)
@@ -3289,7 +3734,7 @@ eventFrame:SetScript("OnEvent",function()
         return
     end
     if not SF.player then return end
-    if ev=="PLAYER_ENTERING_WORLD" then SF:HideBlizzardFrames(); if SF.ApplyBlizzardErrorTextSetting then SF:ApplyBlizzardErrorTextSetting() end; SF:RefreshAll(); if SF.RefreshDispelCapabilities then SF:RefreshDispelCapabilities() end; if SF.UpdatePartyDebuffAlerts then SF:UpdatePartyDebuffAlerts() end; if SF.UpdateMinimapButtonIcon then SF:UpdateMinimapButtonIcon() end; if SF.ApplyExternalUISkin then SF:ApplyExternalUISkin() end
+    if ev=="PLAYER_ENTERING_WORLD" then SF:HideBlizzardFrames(); if SF.ApplyBlizzardErrorTextSetting then SF:ApplyBlizzardErrorTextSetting() end; SF:RefreshAll(); if SF.UpdatePetEatingState then SF:UpdatePetEatingState(true) end; if SF.RefreshDispelCapabilities then SF:RefreshDispelCapabilities() end; if SF.UpdatePartyDebuffAlerts then SF:UpdatePartyDebuffAlerts() end; if SF.UpdateMinimapButtonIcon then SF:UpdateMinimapButtonIcon() end; if SF.ApplyExternalUISkin then SF:ApplyExternalUISkin() end
     elseif ev=="PARTY_MEMBERS_CHANGED" or ev=="PARTY_LEADER_CHANGED" then
         -- Collapse the roster/name/portrait burst and spread the expensive
         -- initial Party Frame population across several rendered frames.
@@ -3299,25 +3744,36 @@ eventFrame:SetScript("OnEvent",function()
         if SF.QueuePartyRosterRefresh then SF:QueuePartyRosterRefresh(ev) else SF:UpdatePartyFrames() end
         if SF.UpdateRaidFrames then SF:UpdateRaidFrames() end
         SF:UpdateBlizzardPartyFrames()
+        SF:UpdateAllRaidMarkers()
+    elseif ev=="RAID_TARGET_UPDATE" then
+        SF:UpdateAllRaidMarkers()
     elseif ev=="SPELLS_CHANGED" then if SF.RefreshDispelCapabilities then SF:RefreshDispelCapabilities() end; if SF.UpdatePartyDebuffAlerts then SF:UpdatePartyDebuffAlerts() end
-    elseif ev=="PLAYER_LEVEL_UP" then SF:UpdatePlayer(); SF:UpdateTarget(); SF:UpdatePartyFrames(); if SF.UpdateRaidFrames then SF:UpdateRaidFrames() end
+    elseif ev=="PLAYER_LEVEL_UP" then SF:UpdatePlayer(); SF:UpdateTarget(); SF:UpdatePet(); SF:UpdatePartyFrames(); if SF.UpdateRaidFrames then SF:UpdateRaidFrames() end
     elseif ev=="UNIT_LEVEL" then
         if u=="player" then SF:UpdatePlayer(); SF:UpdateTarget()
         elseif u=="target" then SF:UpdateTarget()
         elseif u=="targettarget" then SF:UpdateTargetOfTarget()
+        elseif u=="pet" then SF:UpdatePet()
         elseif u and string.sub(u,1,5)=="party" then
             local pi=tonumber(string.sub(u,6))
             if pi and not SF.partyRosterRefreshPending then SF:UpdatePartyFrame(pi) end
         elseif u and string.sub(u,1,4)=="raid" and SF.UpdateRaidFrame then SF:UpdateRaidFrame(tonumber(string.sub(u,5)) or 1) end
-    elseif ev=="PLAYER_TARGET_CHANGED" then SF.lastTargetAuraGuid=GetUnitGuidCompat("target"); SF:UpdateTarget()
+    elseif ev=="PLAYER_TARGET_CHANGED" then SF.lastTargetAuraGuid=GetUnitGuidCompat("target"); SF:UpdateTarget(); SF:UpdateRaidMarker(SF.target,nil); SF:UpdateRaidMarker(SF.tot,nil)
     elseif ev=="PLAYER_ENTER_COMBAT" or ev=="PLAYER_REGEN_DISABLED" then
         SF.inCombat=true; if SF.UpdatePlayerEffects then SF:UpdatePlayerEffects(true) end
     elseif ev=="PLAYER_LEAVE_COMBAT" or ev=="PLAYER_REGEN_ENABLED" then
         SF.inCombat=nil; if SF.UpdatePlayerEffects then SF:UpdatePlayerEffects(true) end
     elseif ev=="PLAYER_UPDATE_RESTING" or ev=="PLAYER_AURAS_CHANGED" then if SF.UpdatePlayerEffects then SF:UpdatePlayerEffects(true) end
+    elseif ev=="UNIT_PET" and u=="player" then SF:UpdatePet(); if SF.UpdatePetEatingState then SF:UpdatePetEatingState(true) end
+    elseif ev=="UNIT_HAPPINESS" then SF:UpdatePetStatusIcon()
     elseif u=="player" then SF:UpdatePlayer(); if SF.UpdateMinimapButtonIcon then SF:UpdateMinimapButtonIcon() end; if SF.UpdatePlayerEffects then SF:UpdatePlayerEffects(true) end
     elseif u=="target" then SF:UpdateTarget()
     elseif u=="targettarget" then SF:UpdateTargetOfTarget()
+    elseif u=="pet" then
+        if ev=="UNIT_HEALTH" or ev=="UNIT_MAXHEALTH" then SF:UpdatePetHealth()
+        elseif ev=="UNIT_AURA" then SF:UpdatePet(); if SF.UpdatePetEatingState then SF:UpdatePetEatingState(true) end
+        elseif ev=="UNIT_LEVEL" or ev=="UNIT_NAME_UPDATE" or ev=="UNIT_PORTRAIT_UPDATE" or ev=="UNIT_MANA" or ev=="UNIT_MAXMANA" or ev=="UNIT_RAGE" or ev=="UNIT_ENERGY" or ev=="UNIT_DISPLAYPOWER" then SF:UpdatePet()
+        else SF:UpdatePet() end
     elseif u and string.sub(u,1,5)=="party" then
         local partyIndex=tonumber(string.sub(u,6))
         if partyIndex and partyIndex>=1 and partyIndex<=4 then
@@ -3375,6 +3831,11 @@ eventFrame:SetScript("OnUpdate",function()
             SF:RefreshFrameLayers(SF.topFrameKey)
         end
     end
+
+    -- RAID_TARGET_UPDATE is not consistently exposed by every Vanilla-derived
+    -- client. This tiny fallback checks only Player/Target/ToT/Pet/Party unit
+    -- tokens. Raid frames are deliberately excluded from this hot path.
+    if SF.UpdateCoreRaidMarkers then SF:UpdateCoreRaidMarkers() end
 
     -- Blizzard party-frame suppression is reconciled on roster/settings/world
     -- events. Do not force Hide()/SetAlpha() on all four native frames here.

@@ -74,8 +74,12 @@ end
 
 local function SkinTexture(file)
     EnsureDefaults()
-    if SlamFramesDB.skin=="dark" then return TEX.."Dark\\"..file end
-    return TEX..file
+    local root=TEX
+    if SF.GetArtResolution and SF:GetArtResolution()=="4kcompat" then
+        root=TEX.."1080\\"
+    end
+    if SlamFramesDB.skin=="dark" then return root.."Dark\\"..file end
+    return root..file
 end
 
 local function UnitSpecialStyle(unit)
@@ -345,6 +349,7 @@ function SF:SetSpecialPlayerFrameEnabled(v,quiet)
     EnsureDefaults()
     SlamFramesDB.specialPlayerFrameEnabled=v and true or false
     self:UpdateSpecialPlayerPortrait()
+    if self.UpdateComboPointTracker then self:UpdateComboPointTracker(true) end
     if self.RefreshSettings then self:RefreshSettings() end
     if not quiet and self.Print then self.Print("player special portrait frame "..(SlamFramesDB.specialPlayerFrameEnabled and "ON" or "OFF")..".") end
 end
@@ -356,6 +361,7 @@ function SF:SetSpecialPlayerFrameStyle(style,quiet)
     if style~="rareelite" and style~="boss" then return false end
     SlamFramesDB.specialPlayerFrameStyle=style
     self:UpdateSpecialPlayerPortrait()
+    if self.UpdateComboPointTracker then self:UpdateComboPointTracker(true) end
     if self.RefreshSettings then self:RefreshSettings() end
     if not quiet and self.Print then self.Print("player special portrait style: "..(style=="boss" and "Boss" or "Rare / Elite")..".") end
     return true
@@ -484,18 +490,30 @@ local function MakeLabel(parent,text,size,color)
 end
 
 local function MakeButton(parent,text,w,h)
-    local b=CreateFrame("Button",nil,parent,"UIPanelButtonTemplate")
-    b:SetWidth(w or 90); b:SetHeight(h or 22); b:SetText(text or "")
-    local normal=b.GetNormalTexture and b:GetNormalTexture() or nil
-    local pushed=b.GetPushedTexture and b:GetPushedTexture() or nil
-    local disabled=b.GetDisabledTexture and b:GetDisabledTexture() or nil
-    local highlight=b.GetHighlightTexture and b:GetHighlightTexture() or nil
-    if normal and normal.SetVertexColor then normal:SetVertexColor(0.72,0.12,0.07) end
-    if pushed and pushed.SetVertexColor then pushed:SetVertexColor(0.60,0.08,0.05) end
-    if disabled and disabled.SetVertexColor then disabled:SetVertexColor(0.62,0.10,0.06) end
-    if highlight and highlight.SetVertexColor then highlight:SetVertexColor(1.00,0.22,0.10) end
-    local fs=b.GetFontString and b:GetFontString() or nil
-    if fs then fs:SetTextColor(1.00,0.82,0.00) end
+    local b=CreateFrame("Button",nil,parent)
+    b:SetWidth(w or 90); b:SetHeight(h or 22)
+    b:SetBackdrop({bgFile="Interface\\Tooltips\\UI-Tooltip-Background",tile=true,tileSize=8,insets={left=1,right=1,top=1,bottom=1}})
+    b:SetBackdropColor(0.05,0.055,0.055,0.97)
+    local function Edge(point1,point2,wid,hei)
+        local t=b:CreateTexture(nil,"OVERLAY"); t:SetTexture(WHITE); t:SetVertexColor(0.82,0.61,0.20,0.72)
+        t:SetPoint(point1,b,point1,0,0); if point2 then t:SetPoint(point2,b,point2,0,0) end
+        if wid then t:SetWidth(wid) end; if hei then t:SetHeight(hei) end; return t
+    end
+    b.sfTop=Edge("TOPLEFT","TOPRIGHT",nil,1); b.sfBottom=Edge("BOTTOMLEFT","BOTTOMRIGHT",nil,1)
+    b.sfLeft=Edge("TOPLEFT","BOTTOMLEFT",1,nil); b.sfRight=Edge("TOPRIGHT","BOTTOMRIGHT",1,nil)
+    b.text=b:CreateFontString(nil,"OVERLAY"); b.text:SetFont(FONT,10,"OUTLINE"); b.text:SetPoint("CENTER",b,"CENTER",0,0); b.text:SetText(text or ""); b.text:SetTextColor(0.94,0.92,0.86)
+    b.SetText=function(self,value) if self.text then self.text:SetText(value or "") end end
+    b.GetFontString=function(self) return self.text end
+    b:SetScript("OnEnter",function()
+        this:SetBackdropColor(0.13,0.10,0.035,0.98)
+        this.sfTop:SetVertexColor(1.00,0.82,0.38,1); this.sfBottom:SetVertexColor(1.00,0.82,0.38,1); this.sfLeft:SetVertexColor(1.00,0.82,0.38,1); this.sfRight:SetVertexColor(1.00,0.82,0.38,1)
+        if this.text then this.text:SetTextColor(1.00,0.90,0.55) end
+    end)
+    b:SetScript("OnLeave",function()
+        this:SetBackdropColor(0.05,0.055,0.055,0.97)
+        this.sfTop:SetVertexColor(0.82,0.61,0.20,0.72); this.sfBottom:SetVertexColor(0.82,0.61,0.20,0.72); this.sfLeft:SetVertexColor(0.82,0.61,0.20,0.72); this.sfRight:SetVertexColor(0.82,0.61,0.20,0.72)
+        if this.text then this.text:SetTextColor(0.94,0.92,0.86) end
+    end)
     return b
 end
 
@@ -527,21 +545,23 @@ function SF:CreateSpecialPortraitSettings()
     local g=f.pages and f.pages.general
     if not g then return end
 
-    -- General originally fits exactly in its 548px viewport. Add space for the
-    -- new section and activate the existing gold scrollbar/mouse wheel.
-    local newHeight=940
+    -- Keep this extension below the base General page instead of overlapping
+    -- Minimap Launcher. Derive the scroll range from the actual viewport so
+    -- future shell sizing changes do not break this page again.
+    local newHeight=990
     g:SetHeight(newHeight)
     local scroll=f.pageScrolls and f.pageScrolls.general
     local slider=f.pageSliders and f.pageSliders.general
-    local maxScroll=newHeight-548
+    local viewport=(scroll and scroll.GetHeight and scroll:GetHeight()) or 472
+    local maxScroll=math.max(0,newHeight-viewport)
     if slider then
         slider:SetMinMaxValues(0,maxScroll)
         slider.sfMaxScroll=maxScroll
-        slider:SetValue(maxScroll)
+        slider:SetValue(0)
     end
-    if scroll and scroll.EnableMouseWheel then scroll:EnableMouseWheel(true) end
+    if scroll and scroll.EnableMouseWheel then scroll:EnableMouseWheel(maxScroll>0) end
 
-    local s=MakeSection(g,"Special portrait frames",0,-556,504,371)
+    local s=MakeSection(g,"Special portrait frames",0,-596,504,371)
     f.sfSpecialPortraitSection=s
 
     s.target=MakeButton(s,"",220,24); s.target:SetPoint("TOPLEFT",s,"TOPLEFT",14,-43)

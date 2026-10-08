@@ -1,8 +1,8 @@
--- SlamFrames v3.1.0
+-- SlamFrames v3.3
 -- Stable visual geometry + true layout scaling + settings/status pass.
 
 SlamFrames_Config = {
-    version = "3.1.0",
+    version = "3.3",
     texturePath = "Interface\\AddOns\\SlamFrames\\Textures\\",
     levelBadgeTexture = "level_badge.tga",
     combatGlowTexture = "combat_glow.tga",
@@ -235,9 +235,9 @@ SlamFrames_Config = {
         latencyTexture = "cast_latency.tga",
         failIconTexture = "cast_fail_icon.tga",
 
-        -- Selectable cast-bar skins. Style 1 preserves the clean v0.18 frame.
-        -- Style 2 recreates the heavier concept-art ornamentation. Both use
-        -- three slices so changing width never stretches decorative endcaps.
+        -- Selectable cast-bar skins.
+        -- V1 = the original pre-third-option cast bar.
+        -- Ornate = registered later by CastBarOrnateV2.lua as style 2.
         styles = {
             [1] = {
                 frameTexture = "castbar_frame.tga",
@@ -258,37 +258,6 @@ SlamFrames_Config = {
                 textInset = 17,
                 nameFont = 15,
                 timerFont = 13,
-            },
-            [2] = {
-                frameTexture = "castbar_frame_style2.tga",
-                iconBorderTexture = "castbar_icon_style2.tga",
-                bodyHeight = 60,
-                -- Style 2 uses the same width slider as Style 1, but its
-                -- ornate body is intentionally shorter so the straight bar
-                -- does not overwhelm or run into the decorative endcaps.
-                iconSize = 72,
-                iconInset = 14,
-                bodyX = 58,
-                leftCap = 50,
-                rightCap = 66,
-                leftSliceU = 0.12,
-                rightSliceU = 0.86,
-                fillLeft = 50,
-                fillRight = 68,
-                fillBottom = 10,
-                fillHeight = 15,
-                textY = 39,
-                textInset = 29,
-                -- Style 2 has heavier left/right ornamentation. Keep the
-                -- spell name clear of the left spearwork and pull the timer
-                -- inward from the decorated arrowhead.
-                nameTextInset = 39,
-                timerTextInset = 58,
-                nameFont = 15,
-                timerFont = 13,
-                latencyTexture = "cast_latency_style2.tga",
-                latencyAlpha = 1.00,
-                latencyEdge = true,
             },
         },
 

@@ -14,11 +14,10 @@ local SKINNED={
     ["player_frame.tga"]=true,
     ["target_frame.tga"]=true,
     ["tot_frame.tga"]=true,
+    ["focus_frame.tga"]=true,
     ["aura_border.tga"]=true,
     ["level_badge.tga"]=true,
     ["castbar_frame.tga"]=true,
-    ["castbar_frame_style2.tga"]=true,
-    ["castbar_icon_style2.tga"]=true,
     ["castbar2_frame.tga"]=true,
     ["castbar2_icon.tga"]=true,
     ["castbar2_fill.tga"]=true,
@@ -59,6 +58,8 @@ function SF:RefreshSkinTextures()
     RefreshUnitFrame(self.player)
     RefreshUnitFrame(self.target)
     RefreshUnitFrame(self.tot)
+    RefreshUnitFrame(self.pet)
+    if self.RefreshFocusSkin then self:RefreshFocusSkin() end
     if self.partyFrames then
         local pi
         for pi=1,table.getn(self.partyFrames) do RefreshUnitFrame(self.partyFrames[pi]) end
@@ -89,6 +90,9 @@ function SF:RefreshSkinTextures()
         if self.player.restGlow then SetTextureSafe(self.player.restGlow,ring) end
         if self.player.combatGlow then SetTextureSafe(self.player.combatGlow,ring) end
         if self.player.ccGlow then SetTextureSafe(self.player.ccGlow,ring) end
+    end
+    if self.pet and self.pet.eatingGlow then
+        SetTextureSafe(self.pet.eatingGlow,self:GetSkinTexture(C.levelBadgeTexture or "level_badge.tga"))
     end
 
     -- CastBar:SetSlice and its icon border are skin-aware; relayout refreshes

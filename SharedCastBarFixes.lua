@@ -10,6 +10,55 @@ local function Lower(v)
     return string.lower(tostring(v or ""))
 end
 
+local function LegacyTargetedFlavorAction(name)
+    if type(name)~="string" or name=="" then return nil end
+    local low=string.lower(name)
+    local prefixes={"casting","using","opening","channeling"}
+    local i,prefix,a,b,action
+    for i=1,table.getn(prefixes) do
+        prefix=prefixes[i]
+        a,b=string.find(low,"^"..prefix.."%s+.+%s+on%s+.+")
+        if a then
+            local lead=string.len(prefix)+2
+            local onStart=string.find(low,"%s+on%s+",lead)
+            if onStart then
+                action=string.sub(name,lead,onStart-1)
+                action=string.gsub(action,"^%s+","")
+                action=string.gsub(action,"%s+$","")
+                if action~="" then return action end
+                return true
+            end
+        end
+    end
+    return nil
+end
+
+local function IsCleanActivityAction(action)
+    if type(action)~="string" then return false end
+    local low=string.lower(action)
+    local keys={
+        "mining","smelt","herbal","herb gathering","skinning","fishing","cooking",
+        "alchemy","blacksmith","engineering","leatherwork","tailor","enchant",
+        "first aid","bandage","pick lock","lockpicking"
+    }
+    local i
+    for i=1,table.getn(keys) do
+        if string.find(low,keys[i],1,true) then return true end
+    end
+    return false
+end
+
+local function IsObjectUseCastName(name)
+    local n=Lower(name)
+    if n=="open" or n=="opening" or n=="using" then return true end
+    -- Octo/Vanilla world-object casts can surface strings such as
+    -- "Opening - No Message" (and occasionally "Opening <object>").
+    -- Treat the whole family as an object-use action instead of a spell name.
+    if string.sub(n,1,8)=="opening " then return true end
+    if string.sub(n,1,6)=="open -" then return true end
+    return false
+end
+
 local function IsGenericCastName(name)
     local n=Lower(name)
     return n=="open" or n=="opening" or n=="cast" or n=="casting"
@@ -18,14 +67,27 @@ end
 
 local function NormalizeCastName(name)
     if not name or name=="" then return nil end
-    local n=Lower(name)
+
+    -- Quest/world-object interactions can arrive as complete old-client
+    -- sentences such as "Casting <action> on <target>...". Never expose the
+    -- player's selected target in the cast label. Preserve familiar profession
+    -- and utility activities; generic quest-object actions become "Using".
+    local flavorAction=LegacyTargetedFlavorAction(name)
+    if flavorAction then
+        if type(flavorAction)=="string" and IsCleanActivityAction(flavorAction) then
+            return flavorAction
+        end
+        return "Using"
+    end
+
     -- Object / quest interactions should never leak the engine's old
-    -- "Open" / "Opening" wording into SlamFrames.
-    if n=="open" or n=="opening" then return "Using" end
+    -- "Open" / "Opening - No Message" wording into SlamFrames.
+    if IsObjectUseCastName(name) then return "Using" end
     if IsGenericCastName(name) then return nil end
     return name
 end
 
+SF.IsObjectUseCastDisplayName=IsObjectUseCastName
 SF.IsGenericCastDisplayName=IsGenericCastName
 SF.NormalizeCastDisplayName=NormalizeCastName
 
@@ -53,7 +115,7 @@ function SF:StartCastBar(name,texture,startTime,endTime,isChannel,source,spellID
         cb.sfStableDisplayName=safe
         cb.castDisplayName=safe
         if cb.name then cb.name:SetText(safe) end
-    elseif Lower(name)=="open" or Lower(name)=="opening" then
+    elseif IsObjectUseCastName(name) then
         cb.sfStableDisplayName="Using"
         cb.castDisplayName="Using"
         if cb.name then cb.name:SetText("Using") end
@@ -101,7 +163,13 @@ function SF:RenderCastBar()
         end
     elseif shown and shown~="" then
         local safe=NormalizeCastName(shown)
-        if safe then cb.sfStableDisplayName=safe end
+        if safe then
+            cb.sfStableDisplayName=safe
+            if safe~=shown then
+                cb.name:SetText(safe)
+                cb.castDisplayName=safe
+            end
+        end
     end
 end
 

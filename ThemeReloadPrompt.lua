@@ -57,7 +57,9 @@ end
 local ART_POPUP_KEY="SLAMFRAMES_ARTRES_RELOAD"
 
 local function ArtResLabel(name)
-    if string.lower(tostring(name or ""))=="1080" then return "1080" end
+    local mode=string.lower(tostring(name or ""))
+    if mode=="1080" then return "1080" end
+    if mode=="4kcompat" then return "4K Compatible" end
     return "4K"
 end
 

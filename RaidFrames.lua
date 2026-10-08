@@ -1,4 +1,4 @@
--- SlamFrames 3.1.0 - Raid frames, compact layouts, opacity, click casting, and healing support.
+-- SlamFrames 3.3 - Raid frames, compact layouts, opacity, click casting, and healing support.
 -- Conservative Vanilla/OctoWoW module: lazy frame creation avoids touching
 -- the 40-player raid grid during addon startup.
 
@@ -706,6 +706,16 @@ local function LayoutCompactRaidFrame(frame, scale)
 
     ApplyCompactHealthTextLayout(frame, scale)
 
+    if frame.raidMarkerFrame and frame.raidMarker then
+        local markerSize=math.max(14,math.floor(22*scale+0.5))
+        frame.raidMarkerFrame:ClearAllPoints()
+        frame.raidMarkerFrame:SetPoint("CENTER",frame,"TOP",0,0)
+        frame.raidMarkerFrame:SetWidth(markerSize)
+        frame.raidMarkerFrame:SetHeight(markerSize)
+        frame.raidMarker:ClearAllPoints()
+        frame.raidMarker:SetAllPoints(frame.raidMarkerFrame)
+    end
+
     frame.moveLabel:ClearAllPoints()
     frame.moveLabel:SetPoint("TOP", frame, "TOP", 0, 16 * scale)
     frame.moveLabel:SetWidth(math.max(80, width))
@@ -970,6 +980,7 @@ function SF:UpdateRaidFrame(index)
     ApplyRaidNameColor(frame, index, unit)
     ApplyRaidPreviewDebuff(frame, index)
     ApplyRaidMainTank(frame, index)
+    if SF.UpdateRaidMarker then SF:UpdateRaidMarker(frame,nil) end
     frame:Show()
 
     if self.UpdateHealPredictionForFrame then
@@ -1261,11 +1272,12 @@ function SF:ResetRaidPosition()
         SlamFramesDB.anchors = {}
     end
 
+    local d=(SF.MASTER_DEFAULT_PROFILE and SF.MASTER_DEFAULT_PROFILE.anchors and SF.MASTER_DEFAULT_PROFILE.anchors.raid) or {point="TOPLEFT",relativePoint="TOPLEFT",x=28,y=-210}
     SlamFramesDB.anchors.raid = {
-        point = "TOPLEFT",
-        relativePoint = "TOPLEFT",
-        x = 28,
-        y = -210
+        point = d.point or "TOPLEFT",
+        relativePoint = d.relativePoint or d.point or "TOPLEFT",
+        x = d.x or 0,
+        y = d.y or 0
     }
 
     if self.raidFrames then

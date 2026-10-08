@@ -1,4 +1,4 @@
--- SlamFrames 3.1.0 - isolated Vanilla/Octo cast timing ownership for spells, items, bandages, gathering and channels
+-- SlamFrames 3.3 - isolated Vanilla/Octo cast timing ownership for spells, items, bandages, gathering and channels
 -- Gold three-slice artwork, spell icon, cast/channel/fail states, latency zone,
 -- explicit old-client layout scaling, movement and preview controls.
 
@@ -233,8 +233,8 @@ local function ResolveCast(name,rawDuration,isChannel)
 end
 
 local function GetStyle()
-    -- Style 2 is intentionally parked for later development. Keep its assets
-    -- in the addon, but use only the proven Style 1 runtime layout for now.
+    -- CastBar.lua owns the proven V1 baseline. Ornate is layered later by
+    -- CastBarOrnateV2.lua, which wraps LayoutCastBar after all files load.
     local styles=CB.styles or {}
     return styles[1] or CB,1
 end
@@ -466,7 +466,8 @@ function SF:SaveCastBarPosition()
 end
 
 function SF:ResetCastBarPosition(quiet)
-    SlamFramesDB.castbarAnchor=nil
+    local d=SF.MASTER_DEFAULT_PROFILE and SF.MASTER_DEFAULT_PROFILE.castbarAnchor
+    if d then SlamFramesDB.castbarAnchor={x=d.x or 0,y=d.y or 0} else SlamFramesDB.castbarAnchor=nil end
     self:ApplyCastBarAnchor()
     if self.RefreshSettings then self:RefreshSettings() end
     if not quiet and self.Print then self.Print("cast bar reset beneath the Player frame.") end

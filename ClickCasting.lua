@@ -1,4 +1,4 @@
--- SlamFrames v3.1.0
+-- SlamFrames 3.3
 -- Designed for OctoWoW / Vanilla 1.12-era APIs.
 -- Click casting is implemented natively in SlamFrames. HealBotBlue and Puppeteer
 -- were used as behavioral/reference sources for Vanilla click-targeting concepts.
@@ -92,6 +92,26 @@ function SF:InitClickCastingDB()
     SlamFramesDB.clickBindingSets.shift=EnsureModifierSet(SlamFramesDB.clickBindingSets.shift)
     SlamFramesDB.clickBindingSets.ctrl=EnsureModifierSet(SlamFramesDB.clickBindingSets.ctrl)
     SlamFramesDB.clickBindingSets.alt=EnsureModifierSet(SlamFramesDB.clickBindingSets.alt)
+end
+
+-- Restore only this character's binding grid. This does not reset the
+-- enabled state, tooltips, or any other SlamFrames settings.
+function SF:ResetClickBindings(quiet)
+    if not SlamFramesDB then return end
+    local function FreshSet()
+        return {
+            LeftButton=NewBinding("normal",""),
+            RightButton=NewBinding("normal",""),
+            MiddleButton=NewBinding("normal",""),
+        }
+    end
+    SlamFramesDB.clickBindingSets={
+        none=FreshSet(),shift=FreshSet(),ctrl=FreshSet(),alt=FreshSet(),
+    }
+    SlamFramesDB.clickBindings=nil -- disallow stale legacy spell migration
+    if self.RefreshAllUnitClickButtons then self:RefreshAllUnitClickButtons() end
+    if self.RefreshSettings then self:RefreshSettings() end
+    if not quiet then Print("mouse bindings reset to Normal (all modifiers, no spells or items).") end
 end
 
 function SF:GetClickBinding(modifier,button)
@@ -632,7 +652,7 @@ function SF:EnsureUnitClickButton(frame)
         if arg1=="RightButton" then
             if SF.UnitMenuForFrame then SF:UnitMenuForFrame(owner) end
         elseif arg1=="LeftButton" then
-            if owner.frameKey=="party" and owner.unit and type(TargetUnit)=="function" then
+            if (owner.frameKey=="party" or owner.frameKey=="pet") and owner.unit and type(TargetUnit)=="function" then
                 TargetUnit(owner.unit)
                 if SF.UpdateTarget then SF:UpdateTarget() end
             elseif owner.frameKey=="player" and SlamFramesDB.selfTargetOnClick and type(TargetUnit)=="function" then
@@ -749,7 +769,7 @@ function SF:ApplySecureClickAttributes(frame)
 end
 
 function SF:RefreshAllUnitClickButtons()
-    local frames={self.player,self.target,self.tot}
+    local frames={self.player,self.target,self.tot,self.pet}
     local i
     if self.partyFrames then for i=1,table.getn(self.partyFrames) do table.insert(frames,self.partyFrames[i]) end end
     if self.raidFrames then for i=1,table.getn(self.raidFrames) do table.insert(frames,self.raidFrames[i]) end end

@@ -1,4 +1,4 @@
--- SlamFrames v3.1.0
+-- SlamFrames v3.3
 -- OctoWoW / 1.12-era compatible: intentionally uses this/arg1 in handlers.
 
 local SF=SlamFrames
@@ -7,10 +7,12 @@ local TEX=C.texturePath
 local WHITE="Interface\\Buttons\\WHITE8X8"
 local FONT="Fonts\\FRIZQT__.TTF"
 
-local GOLD={1.00,0.82,0.00}
-local GOLD_DIM={0.65,0.48,0.08}
-local WHITE_TEXT={0.92,0.92,0.92}
-local MUTED={0.66,0.66,0.66}
+local GOLD={0.94,0.78,0.32}
+local GOLD_DIM={0.72,0.54,0.18}
+local WHITE_TEXT={0.92,0.92,0.90}
+local MUTED={0.66,0.66,0.62}
+local PANEL={0.040,0.045,0.052}
+local PANEL2={0.060,0.066,0.074}
 
 local function RaidCall(method,value)
     local fn=SF and SF[method]
@@ -35,30 +37,67 @@ local function MakeLabel(parent,text,size,color)
     return f
 end
 
-local function TintButton(b, selected)
+local function MakeSolid(parent,layer,r,g,b,a)
+    local t=parent:CreateTexture(nil,layer or "ARTWORK")
+    t:SetTexture(WHITE)
+    t:SetVertexColor(r or 1,g or 1,b or 1,a or 1)
+    return t
+end
+
+local function TintButton(b,selected)
     if not b then return end
-    -- Shared UI polish: keep every settings button in the same vivid red
-    -- family. Selected buttons are only slightly brighter so state remains
-    -- readable without the old brown/dull-red mismatch between sections.
-    local normal=b.GetNormalTexture and b:GetNormalTexture() or nil
-    local pushed=b.GetPushedTexture and b:GetPushedTexture() or nil
-    local disabled=b.GetDisabledTexture and b:GetDisabledTexture() or nil
-    local highlight=b.GetHighlightTexture and b:GetHighlightTexture() or nil
-    if normal and normal.SetVertexColor then
-        if selected then normal:SetVertexColor(0.82,0.15,0.08) else normal:SetVertexColor(0.72,0.12,0.07) end
+    b.sfSelected=selected and true or false
+    if b.sfSetBorderColor then
+        if selected then
+            b:SetBackdropColor(0.19,0.12,0.045,0.98)
+            b:sfSetBorderColor(0.94,0.78,0.32,1)
+            if b.text then b.text:SetTextColor(1.00,0.91,0.58) end
+        else
+            b:SetBackdropColor(0.06,0.07,0.08,0.97)
+            b:sfSetBorderColor(0.72,0.54,0.18,0.70)
+            if b.text then b.text:SetTextColor(0.92,0.92,0.88) end
+        end
+        return
     end
-    if pushed and pushed.SetVertexColor then pushed:SetVertexColor(0.60,0.08,0.05) end
-    if disabled and disabled.SetVertexColor then
-        if selected then disabled:SetVertexColor(0.82,0.15,0.08) else disabled:SetVertexColor(0.62,0.10,0.06) end
-    end
-    if highlight and highlight.SetVertexColor then highlight:SetVertexColor(1.00,0.22,0.10) end
     local fs=b.GetFontString and b:GetFontString() or nil
-    if fs then fs:SetTextColor(1.00,0.82,0.00) end
+    if fs then fs:SetTextColor(1.00,0.82,0.38) end
 end
 
 local function MakeButton(parent,text,w,h)
-    local b=CreateFrame("Button",nil,parent,"UIPanelButtonTemplate")
-    b:SetWidth(w or 90); b:SetHeight(h or 22); b:SetText(text or "")
+    local b=CreateFrame("Button",nil,parent)
+    b:SetWidth(w or 90); b:SetHeight(h or 22)
+    b:SetBackdrop({bgFile="Interface\\Tooltips\\UI-Tooltip-Background",tile=true,tileSize=8,insets={left=1,right=1,top=1,bottom=1}})
+    b:SetBackdropColor(0.06,0.07,0.08,0.97)
+    b.sfTop=MakeSolid(b,"OVERLAY",0.72,0.54,0.18,0.70)
+    b.sfBottom=MakeSolid(b,"OVERLAY",0.72,0.54,0.18,0.70)
+    b.sfLeft=MakeSolid(b,"OVERLAY",0.72,0.54,0.18,0.70)
+    b.sfRight=MakeSolid(b,"OVERLAY",0.72,0.54,0.18,0.70)
+    b.sfTop:SetPoint("TOPLEFT",b,"TOPLEFT",0,0); b.sfTop:SetPoint("TOPRIGHT",b,"TOPRIGHT",0,0); b.sfTop:SetHeight(1)
+    b.sfBottom:SetPoint("BOTTOMLEFT",b,"BOTTOMLEFT",0,0); b.sfBottom:SetPoint("BOTTOMRIGHT",b,"BOTTOMRIGHT",0,0); b.sfBottom:SetHeight(1)
+    b.sfLeft:SetPoint("TOPLEFT",b,"TOPLEFT",0,0); b.sfLeft:SetPoint("BOTTOMLEFT",b,"BOTTOMLEFT",0,0); b.sfLeft:SetWidth(1)
+    b.sfRight:SetPoint("TOPRIGHT",b,"TOPRIGHT",0,0); b.sfRight:SetPoint("BOTTOMRIGHT",b,"BOTTOMRIGHT",0,0); b.sfRight:SetWidth(1)
+    function b:sfSetBorderColor(r,g,bl,a)
+        self.sfTop:SetVertexColor(r,g,bl,a); self.sfBottom:SetVertexColor(r,g,bl,a)
+        self.sfLeft:SetVertexColor(r,g,bl,a); self.sfRight:SetVertexColor(r,g,bl,a)
+    end
+    b.text=b:CreateFontString(nil,"OVERLAY")
+    b.text:SetFont(FONT,10,"OUTLINE")
+    b.text:SetPoint("CENTER",b,"CENTER",0,0)
+    b.text:SetText(text or "")
+    b.text:SetTextColor(0.92,0.92,0.88)
+    b.SetText=function(self,value) if self.text then self.text:SetText(value or "") end end
+    b.GetFontString=function(self) return self.text end
+    b:SetScript("OnEnter",function()
+        this:sfSetBorderColor(0.94,0.78,0.32,1)
+        this:SetBackdropColor(0.14,0.10,0.040,0.98)
+        if this.text then this.text:SetTextColor(1.00,0.91,0.58) end
+    end)
+    b:SetScript("OnLeave",function()
+        if this.sfSelected then return end
+        this:sfSetBorderColor(0.72,0.54,0.18,0.70)
+        this:SetBackdropColor(0.06,0.07,0.08,0.97)
+        if this.text then this.text:SetTextColor(0.92,0.92,0.88) end
+    end)
     TintButton(b,false)
     return b
 end
@@ -103,24 +142,53 @@ local function MakeLine(parent,x,y,w)
     return t
 end
 
-local function MakeSection(parent,title,x,y,w,h)
+local function MakeSection(parent,title,x,y,w,h,subtitle)
     local box=CreateFrame("Frame",nil,parent)
     box:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y)
     box:SetWidth(w); box:SetHeight(h)
-
-    local bg=box:CreateTexture(nil,"BACKGROUND")
-    bg:SetAllPoints(box); bg:SetTexture(WHITE); bg:SetVertexColor(0.025,0.025,0.025,0.72)
-    box.bg=bg
-
-    local left=box:CreateTexture(nil,"BORDER"); left:SetTexture(WHITE); left:SetVertexColor(0.24,0.20,0.12,1); left:SetPoint("TOPLEFT",box,"TOPLEFT",0,0); left:SetWidth(1); left:SetHeight(h)
-    local right=box:CreateTexture(nil,"BORDER"); right:SetTexture(WHITE); right:SetVertexColor(0.24,0.20,0.12,1); right:SetPoint("TOPRIGHT",box,"TOPRIGHT",0,0); right:SetWidth(1); right:SetHeight(h)
-    local top=box:CreateTexture(nil,"BORDER"); top:SetTexture(WHITE); top:SetVertexColor(0.55,0.42,0.12,1); top:SetPoint("TOPLEFT",box,"TOPLEFT",0,0); top:SetWidth(w); top:SetHeight(1)
-    local bottom=box:CreateTexture(nil,"BORDER"); bottom:SetTexture(WHITE); bottom:SetVertexColor(0.24,0.20,0.12,1); bottom:SetPoint("BOTTOMLEFT",box,"BOTTOMLEFT",0,0); bottom:SetWidth(w); bottom:SetHeight(1)
-
-    box.title=MakeLabel(box,title,13,GOLD)
-    box.title:SetPoint("TOPLEFT",box,"TOPLEFT",12,-9)
-    MakeLine(box,12,-29,w-24)
+    box:SetBackdrop({
+        bgFile="Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",
+        tile=true,tileSize=16,edgeSize=12,
+        insets={left=4,right=4,top=4,bottom=4}
+    })
+    box:SetBackdropColor(PANEL[1],PANEL[2],PANEL[3],0.985)
+    box:SetBackdropBorderColor(GOLD_DIM[1],GOLD_DIM[2],GOLD_DIM[3],0.72)
+    box.title=MakeLabel(box,string.upper(title or ""),13,GOLD)
+    box.title:SetPoint("TOPLEFT",box,"TOPLEFT",12,-10)
+    if subtitle and subtitle~="" then
+        box.subtitle=MakeLabel(box,subtitle,9,MUTED)
+        box.subtitle:SetPoint("TOPLEFT",box.title,"BOTTOMLEFT",0,-2)
+        box.subtitle:SetWidth(w-24); box.subtitle:SetJustifyH("LEFT")
+    end
     return box
+end
+
+local ShowPage
+
+local function ScrollActive(panel,delta)
+    if not panel or not panel.activeTab or not panel.pageSliders then return end
+    local sl=panel.pageSliders[panel.activeTab]
+    if not sl or not sl.sfMaxScroll or sl.sfMaxScroll<=0 then return end
+    local value=sl:GetValue() or 0
+    value=value-((delta or 0)*42)
+    if value<0 then value=0 elseif value>sl.sfMaxScroll then value=sl.sfMaxScroll end
+    sl:SetValue(value)
+end
+
+local function MakeNavButton(parent,pageKey,text,icon,x,y)
+    local b=MakeButton(parent,"",142,35)
+    b.pageKey=pageKey
+    b:SetPoint("TOPLEFT",parent,"TOPLEFT",x,y)
+    b.icon=b:CreateTexture(nil,"ARTWORK")
+    b.icon:SetWidth(20); b.icon:SetHeight(20)
+    b.icon:SetPoint("LEFT",b,"LEFT",10,0)
+    b.icon:SetTexture(icon)
+    b.icon:SetTexCoord(0.08,0.92,0.08,0.92)
+    b.text:ClearAllPoints(); b.text:SetPoint("LEFT",b.icon,"RIGHT",9,0)
+    b.text:SetFont(FONT,11,"OUTLINE"); b.text:SetText(text or "")
+    b:SetScript("OnClick",function() if this.sfPanel then ShowPage(this.sfPanel,this.pageKey) end end)
+    return b
 end
 
 local function AddScaleRow(parent,labelText,y,getValue,setter,step)
@@ -181,8 +249,9 @@ function SF:SetMinimapButtonShown(v)
 end
 
 function SF:ResetMinimapButtonPosition()
-    SlamFramesDB.minimapAngle=-0.4897411260673095
-    SlamFramesDB.minimapRadius=80
+    local d=SF.MASTER_DEFAULT_PROFILE or {}
+    SlamFramesDB.minimapAngle=tonumber(d.minimapAngle) or -0.4897411260673095
+    SlamFramesDB.minimapRadius=tonumber(d.minimapRadius) or 80
     self:UpdateMinimapButtonPosition()
     if self.RefreshSettings then self:RefreshSettings() end
 end
@@ -269,7 +338,7 @@ function SF:CreateMinimapButton()
     if SlamFramesDB.showMinimapButton then b:Show() else b:Hide() end
 end
 
-local function ShowPage(panel,key)
+ShowPage=function(panel,key)
     if not panel or not panel.pages then return end
     local k,page,scroll,slider
     for k,page in pairs(panel.pages) do
@@ -298,105 +367,172 @@ end
 function SF:CreateSettingsPanel()
     if self.settings then return end
 
+    -- Clean settings shell:
+    -- keep the SlamFrames header/logo and a few restrained corner accents,
+    -- but return the body to a clean rectangular settings layout.
     local f=CreateFrame("Frame","SlamFramesSettings",UIParent)
-    f:SetWidth(540); f:SetHeight(740); f:SetPoint("CENTER",UIParent,"CENTER",0,0)
-    f:SetFrameStrata("DIALOG"); f:SetMovable(true); f:EnableMouse(true); f:RegisterForDrag("LeftButton")
-    f:SetScript("OnDragStart",function() this:StartMoving() end)
-    f:SetScript("OnDragStop",function() this:StopMovingOrSizing() end)
-    if f.SetBackdrop then
-        f:SetBackdrop({bgFile="Interface\\DialogFrame\\UI-DialogBox-Background",edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border",tile=true,tileSize=32,edgeSize=24,insets={left=8,right=8,top=8,bottom=8}})
-    end
-
-    -- Slim gold inner border gives the dark SlamPlates-style settings shell a
-    -- SlamFrames identity while retaining the same high-contrast layout.
-    local borderTop=f:CreateTexture(nil,"BORDER"); borderTop:SetTexture(WHITE); borderTop:SetVertexColor(0.78,0.56,0.10,0.9); borderTop:SetPoint("TOPLEFT",f,"TOPLEFT",10,-10); borderTop:SetWidth(520); borderTop:SetHeight(1)
-    local borderBottom=f:CreateTexture(nil,"BORDER"); borderBottom:SetTexture(WHITE); borderBottom:SetVertexColor(0.78,0.56,0.10,0.9); borderBottom:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",10,10); borderBottom:SetWidth(520); borderBottom:SetHeight(1)
-
+    f:SetWidth(820); f:SetHeight(650); f:SetPoint("CENTER",UIParent,"CENTER",0,10)
+    f:SetFrameStrata("DIALOG"); f:SetMovable(true); f:EnableMouse(true)
+    -- Keep the parent frame itself transparent.  The black body is inset
+    -- slightly so the gold border is always visible above it instead of being
+    -- visually swallowed by the backdrop at the window edges.
+    f:SetBackdrop({
+        bgFile="Interface\\Tooltips\\UI-Tooltip-Background",
+        tile=true,tileSize=16,
+        insets={left=0,right=0,top=0,bottom=0}
+    })
+    f:SetBackdropColor(0,0,0,0)
     f:Hide(); self.settings=f
+    if UISpecialFrames then table.insert(UISpecialFrames,"SlamFramesSettings") end
 
-    local title=MakeLabel(f,"SlamFrames",20,GOLD); title:SetPoint("TOPLEFT",f,"TOPLEFT",24,-20)
-    local subtitle=MakeLabel(f,"UNIT FRAMES",12,WHITE_TEXT); subtitle:SetPoint("LEFT",title,"RIGHT",14,0)
-    local version=MakeLabel(f,"v"..(C.version or ""),10,MUTED); version:SetPoint("TOPLEFT",title,"BOTTOMLEFT",2,-2)
-    local close=MakeButton(f,"X",30,25); close:SetPoint("TOPRIGHT",f,"TOPRIGHT",-20,-18); close:SetScript("OnClick",function() f:Hide() end)
+    local bodyBG=f:CreateTexture(nil,"BACKGROUND")
+    bodyBG:SetTexture(WHITE)
+    bodyBG:SetPoint("TOPLEFT",f,"TOPLEFT",2,-2)
+    bodyBG:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-2,2)
+    bodyBG:SetVertexColor(0.010,0.014,0.017,0.992)
+    f.bodyBG=bodyBG
+
+    -- Two-pixel overlay border, inset by one pixel so the complete border
+    -- renders inside the window bounds on the Vanilla client.
+    local outerTop=MakeSolid(f,"OVERLAY",GOLD_DIM[1],GOLD_DIM[2],GOLD_DIM[3],0.95)
+    outerTop:SetPoint("TOPLEFT",f,"TOPLEFT",1,-1); outerTop:SetPoint("TOPRIGHT",f,"TOPRIGHT",-1,-1); outerTop:SetHeight(2)
+    local outerBottom=MakeSolid(f,"OVERLAY",GOLD_DIM[1],GOLD_DIM[2],GOLD_DIM[3],0.95)
+    outerBottom:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",1,1); outerBottom:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-1,1); outerBottom:SetHeight(2)
+    local outerLeft=MakeSolid(f,"OVERLAY",GOLD_DIM[1],GOLD_DIM[2],GOLD_DIM[3],0.95)
+    outerLeft:SetPoint("TOPLEFT",f,"TOPLEFT",1,-1); outerLeft:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",1,1); outerLeft:SetWidth(2)
+    local outerRight=MakeSolid(f,"OVERLAY",GOLD_DIM[1],GOLD_DIM[2],GOLD_DIM[3],0.95)
+    outerRight:SetPoint("TOPRIGHT",f,"TOPRIGHT",-1,-1); outerRight:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-1,1); outerRight:SetWidth(2)
+
+    -- Application-specific corner artwork uses rails that begin on the
+    -- exact texture edges.  This makes each ornament physically meet the outer
+    -- border instead of floating inward from the window corners.
+    local cornerTL=f:CreateTexture(nil,"OVERLAY"); cornerTL:SetTexture(TEX.."settings_corner_tl.tga"); cornerTL:SetWidth(72); cornerTL:SetHeight(72); cornerTL:SetPoint("TOPLEFT",f,"TOPLEFT",0,0)
+    local cornerTR=f:CreateTexture(nil,"OVERLAY"); cornerTR:SetTexture(TEX.."settings_corner_tr.tga"); cornerTR:SetWidth(72); cornerTR:SetHeight(72); cornerTR:SetPoint("TOPRIGHT",f,"TOPRIGHT",0,0)
+    local cornerBL=f:CreateTexture(nil,"OVERLAY"); cornerBL:SetTexture(TEX.."settings_corner_bl.tga"); cornerBL:SetWidth(72); cornerBL:SetHeight(72); cornerBL:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",0,0)
+    local cornerBR=f:CreateTexture(nil,"OVERLAY"); cornerBR:SetTexture(TEX.."settings_corner_br.tga"); cornerBR:SetWidth(72); cornerBR:SetHeight(72); cornerBR:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",0,0)
+    f.cornerTL=cornerTL; f.cornerTR=cornerTR; f.cornerBL=cornerBL; f.cornerBR=cornerBR
+
+    local header=CreateFrame("Frame",nil,f)
+    header:SetPoint("TOPLEFT",f,"TOPLEFT",18,-12); header:SetPoint("TOPRIGHT",f,"TOPRIGHT",-18,-12); header:SetHeight(118)
+    header:EnableMouse(true); header:RegisterForDrag("LeftButton")
+    header:SetScript("OnDragStart",function() f:StartMoving() end)
+    header:SetScript("OnDragStop",function() f:StopMovingOrSizing() end)
+    local hbg=MakeSolid(header,"BACKGROUND",0.012,0.017,0.020,1); hbg:SetAllPoints(header)
+    local banner=header:CreateTexture(nil,"ARTWORK")
+    if SF.GetArtResolution and SF:GetArtResolution()=="4kcompat" then
+        banner:SetTexture(TEX.."Compat4K\\settings_header.tga")
+        -- Compat header is stored in a 512x256 power-of-two canvas; only the
+        -- authored 512x171 banner region is displayed.
+        banner:SetTexCoord(0,1,0,171/256)
+    else
+        banner:SetTexture(TEX.."settings_header.tga")
+        banner:SetTexCoord(0,1,0,1)
+    end
+    banner:SetPoint("TOP",header,"TOP",0,0)
+    banner:SetWidth(360); banner:SetHeight(120)
+    header.banner=banner
+    local hline=MakeSolid(header,"BORDER",GOLD_DIM[1],GOLD_DIM[2],GOLD_DIM[3],0.78)
+    hline:SetPoint("BOTTOMLEFT",header,"BOTTOMLEFT",10,0); hline:SetPoint("BOTTOMRIGHT",header,"BOTTOMRIGHT",-10,0); hline:SetHeight(1)
+    local close=MakeButton(f,"X",28,22)
+    close:SetFrameStrata("FULLSCREEN_DIALOG")
+    close:SetFrameLevel((f:GetFrameLevel() or 1)+12)
+    close:ClearAllPoints()
+    -- Anchor directly into the dedicated top-right corner recess instead of the
+    -- header area so the button sits visually inside the ornamented socket.
+    close:SetPoint("TOPRIGHT",f,"TOPRIGHT",-18,-15)
+    close:SetScript("OnClick",function() f:Hide() end)
+
+    local nav=CreateFrame("Frame",nil,f)
+    nav:SetPoint("TOPLEFT",f,"TOPLEFT",24,-146); nav:SetWidth(154); nav:SetHeight(392)
+    nav:SetBackdrop({
+        bgFile="Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",
+        tile=true,tileSize=16,edgeSize=12,
+        insets={left=4,right=4,top=4,bottom=4}
+    })
+    nav:SetBackdropColor(0.022,0.030,0.036,0.99)
+    nav:SetBackdropBorderColor(GOLD_DIM[1],GOLD_DIM[2],GOLD_DIM[3],0.62)
+    local navTitle=MakeLabel(nav,"SETTINGS",12,GOLD); navTitle:SetPoint("TOPLEFT",nav,"TOPLEFT",12,-12)
+    f.nav=nav
 
     f.tabs={}
-    local tabData={{"General","general"},{"Layout","layout"},{"Party","party"},{"Raid","raid"},{"Click Cast","clickcast"},{"Effects","effects"},{"Cast Bar","castbar"}}
+    local tabData={
+        {"General","general","Interface\\Icons\\INV_Misc_Gear_01"},
+        {"Layout","layout","Interface\\Icons\\INV_Misc_Rune_01"},
+        {"Pet","pet","Interface\\Icons\\Ability_Hunter_BeastCall"},
+        {"Focus","focus","Interface\\Icons\\Spell_Holy_MindVision"},
+        {"Party","party","Interface\\Icons\\Spell_Holy_PrayerOfHealing02"},
+        {"Raid","raid","Interface\\Icons\\Spell_Holy_PrayerOfHealing"},
+        {"Click Cast","clickcast","Interface\\Icons\\Spell_Holy_Heal"},
+        {"Effects","effects","Interface\\Icons\\Spell_Holy_InnerFire"},
+        {"Cast Bar","castbar","Interface\\Icons\\Spell_Nature_Lightning"},
+    }
     local i
     for i=1,table.getn(tabData) do
-        local t=MakeButton(f,tabData[i][1],78,28)
-        t.pageKey=tabData[i][2]
-        t:SetWidth(68); t:SetPoint("TOPLEFT",f,"TOPLEFT",24+(i-1)*70,-64)
-        t:SetScript("OnClick",function() ShowPage(f,this.pageKey) end)
+        local y=-38-(i-1)*37
+        local t=MakeNavButton(nav,tabData[i][2],tabData[i][1],tabData[i][3],6,y)
+        t.sfPanel=f
         f.tabs[i]=t
     end
 
-    -- Scrollable tab viewport. The footer stays fixed, so long pages can grow
-    -- without covering Reset All / Test Frames / Close. Only tabs whose
-    -- content exceeds the viewport show a scrollbar; mouse wheel works too.
-    f.pages={}
-    f.pageScrolls={}
-    f.pageSliders={}
-    local pageKeys={"general","layout","party","raid","clickcast","effects","castbar"}
-    local pageHeights={general=548,layout=672,party=548,raid=950,clickcast=836,effects=548,castbar=650}
-    local viewportHeight=548
+    local content=CreateFrame("Frame",nil,f)
+    content:SetPoint("TOPLEFT",f,"TOPLEFT",194,-146); content:SetWidth(598); content:SetHeight(422)
+    content:EnableMouse(true)
+    content:EnableMouseWheel(true)
+    f.content=content
+    f:SetScript("OnMouseWheel",function() ScrollActive(f,arg1 or 0) end)
+    content:SetScript("OnMouseWheel",function() ScrollActive(f,arg1 or 0) end)
+    nav:EnableMouseWheel(true)
+    nav:SetScript("OnMouseWheel",function() ScrollActive(f,arg1 or 0) end)
+    header:EnableMouseWheel(true)
+    header:SetScript("OnMouseWheel",function() ScrollActive(f,arg1 or 0) end)
+
+    f.pages={}; f.pageScrolls={}; f.pageSliders={}
+    local pageKeys={"general","layout","pet","focus","party","raid","clickcast","effects","castbar"}
+    local pageHeights={general=640,layout=965,pet=840,focus=590,party=610,raid=1000,clickcast=880,effects=600,castbar=760}
+    local viewportHeight=422
     for i=1,table.getn(pageKeys) do
         local key=pageKeys[i]
-        local scroll=CreateFrame("ScrollFrame",nil,f)
-        scroll:SetPoint("TOPLEFT",f,"TOPLEFT",18,-104)
+        local scroll=CreateFrame("ScrollFrame",nil,content)
+        scroll:SetPoint("TOPLEFT",content,"TOPLEFT",14,0)
         scroll:SetWidth(504); scroll:SetHeight(viewportHeight)
+        scroll:EnableMouse(true)
         scroll:Hide()
 
-        local p=CreateFrame("Frame",nil,scroll)
-        p:SetWidth(504); p:SetHeight(pageHeights[key] or viewportHeight)
-        scroll:SetScrollChild(p)
-        p:Hide()
+        local page=CreateFrame("Frame",nil,scroll)
+        page:SetWidth(504); page:SetHeight(pageHeights[key] or viewportHeight)
+        scroll:SetScrollChild(page); page:Hide()
 
         local maxScroll=math.max(0,(pageHeights[key] or viewportHeight)-viewportHeight)
-        local slider=CreateFrame("Slider",nil,f)
+        if scroll.EnableMouseWheel then scroll:EnableMouseWheel(maxScroll>0) end
+        local slider=CreateFrame("Slider",nil,content)
         slider:SetOrientation("VERTICAL")
-        slider:SetPoint("TOPLEFT",scroll,"TOPRIGHT",5,-4)
+        slider:SetPoint("TOPLEFT",scroll,"TOPRIGHT",10,-2)
         slider:SetWidth(10); slider:SetHeight(viewportHeight-8)
         slider:SetMinMaxValues(0,maxScroll)
         if slider.SetValueStep then slider:SetValueStep(20) end
-        -- Vertical sliders place their maximum at the top. Invert the value
-        -- so the thumb behaves like a normal scrollbar: top = page top.
-        slider:SetValue(maxScroll)
-        slider.sfMaxScroll=maxScroll
-        slider.sfScroll=scroll
-
-        local track=slider:CreateTexture(nil,"BACKGROUND")
-        track:SetTexture(WHITE); track:SetVertexColor(0.18,0.16,0.12,0.85)
+        slider:SetValue(0); slider.sfMaxScroll=maxScroll; slider.sfScroll=scroll
+        local track=MakeSolid(slider,"BACKGROUND",0.18,0.16,0.12,0.80)
         track:SetPoint("TOP",slider,"TOP",0,0); track:SetPoint("BOTTOM",slider,"BOTTOM",0,0); track:SetWidth(3)
-        local thumb=slider:CreateTexture(nil,"OVERLAY")
-        thumb:SetTexture(WHITE); thumb:SetVertexColor(0.78,0.56,0.10,0.95)
-        thumb:SetWidth(8); thumb:SetHeight(34)
-        slider:SetThumbTexture(thumb)
+        local thumb=MakeSolid(slider,"OVERLAY",GOLD_DIM[1],GOLD_DIM[2],GOLD_DIM[3],0.95)
+        thumb:SetWidth(8); thumb:SetHeight(34); slider:SetThumbTexture(thumb)
         slider:SetScript("OnValueChanged",function()
-            if this.sfScroll then
-                this.sfScroll:SetVerticalScroll((this.sfMaxScroll or 0)-this:GetValue())
-            end
+            if this.sfScroll then this.sfScroll:SetVerticalScroll(this:GetValue() or 0) end
         end)
         slider:Hide()
 
         if scroll.EnableMouseWheel then
-            scroll:EnableMouseWheel(maxScroll>0)
-            scroll.sfSlider=slider
-            scroll:SetScript("OnMouseWheel",function()
-                local s=this.sfSlider
-                if not s or not s.sfMaxScroll or s.sfMaxScroll<=0 then return end
-                local delta=arg1 or 0
-                local offset=s.sfMaxScroll-s:GetValue()
-                offset=offset-(delta*42)
-                if offset<0 then offset=0 elseif offset>s.sfMaxScroll then offset=s.sfMaxScroll end
-                s:SetValue(s.sfMaxScroll-offset)
-            end)
+            scroll:EnableMouseWheel(maxScroll>0); scroll.sfSlider=slider
+            scroll:SetScript("OnMouseWheel",function() ScrollActive(f,arg1 or 0) end)
+        end
+        page:EnableMouse(true)
+        if page.EnableMouseWheel then
+            page:EnableMouseWheel(maxScroll>0)
+            page:SetScript("OnMouseWheel",function() ScrollActive(f,arg1 or 0) end)
         end
 
-        f.pages[key]=p
-        f.pageScrolls[key]=scroll
-        f.pageSliders[key]=slider
+        f.pages[key]=page; f.pageScrolls[key]=scroll; f.pageSliders[key]=slider
     end
-
     -- GENERAL ---------------------------------------------------------------
     local g=f.pages.general
     local display=MakeSection(g,"Display",0,0,504,246)
@@ -432,7 +568,8 @@ function SF:CreateSettingsPanel()
     display.resolutionLabel=MakeLabel(display,"Art resolution",11,WHITE_TEXT); display.resolutionLabel:SetPoint("TOPLEFT",display,"TOPLEFT",14,-210)
     display.resolutionButtons={}
     display.resolutionButtons[1]=MakeButton(display,"4K",96,22); display.resolutionButtons[1].res="4k"; display.resolutionButtons[1]:SetPoint("TOPLEFT",display,"TOPLEFT",150,-206); display.resolutionButtons[1]:SetScript("OnClick",function() SF:SetArtResolution(this.res,true); if SF.PromptArtResolutionReload then SF:PromptArtResolutionReload(this.res) end; SF:RefreshSettings() end)
-    display.resolutionButtons[2]=MakeButton(display,"1080",96,22); display.resolutionButtons[2].res="1080"; display.resolutionButtons[2]:SetPoint("LEFT",display.resolutionButtons[1],"RIGHT",10,0); display.resolutionButtons[2]:SetScript("OnClick",function() SF:SetArtResolution(this.res,true); if SF.PromptArtResolutionReload then SF:PromptArtResolutionReload(this.res) end; SF:RefreshSettings() end)
+    display.resolutionButtons[2]=MakeButton(display,"4K Compat",96,22); display.resolutionButtons[2].res="4kcompat"; display.resolutionButtons[2]:SetPoint("LEFT",display.resolutionButtons[1],"RIGHT",10,0); display.resolutionButtons[2]:SetScript("OnClick",function() SF:SetArtResolution(this.res,true); if SF.PromptArtResolutionReload then SF:PromptArtResolutionReload(this.res) end; SF:RefreshSettings() end)
+    display.resolutionButtons[3]=MakeButton(display,"1080",96,22); display.resolutionButtons[3].res="1080"; display.resolutionButtons[3]:SetPoint("LEFT",display.resolutionButtons[2],"RIGHT",10,0); display.resolutionButtons[3]:SetScript("OnClick",function() SF:SetArtResolution(this.res,true); if SF.PromptArtResolutionReload then SF:PromptArtResolutionReload(this.res) end; SF:RefreshSettings() end)
 
     local interaction=MakeSection(g,"Interaction",0,-258,504,158)
     interaction.lock=MakeButton(interaction,"",205,24); interaction.lock:SetPoint("TOPLEFT",interaction,"TOPLEFT",14,-43); interaction.lock:SetScript("OnClick",function() SF:SetLocked(not SlamFramesDB.locked) end)
@@ -541,6 +678,186 @@ function SF:CreateSettingsPanel()
     local relationSection=MakeSection(l,"Relative placement",258,-574,246,110)
     relationSection.totReset=MakeButton(relationSection,"Reset ToT Under Target",214,24); relationSection.totReset:SetPoint("TOPLEFT",relationSection,"TOPLEFT",14,-42); relationSection.totReset:SetScript("OnClick",function() SF:ResetToTRelative() end)
     local rhelp=MakeLabel(relationSection,"Reattaches ToT beneath the target health bar.",9,MUTED); rhelp:SetPoint("TOPLEFT",relationSection,"TOPLEFT",14,-76)
+
+    local comboSection=MakeSection(l,"Combo Points",0,-696,504,242,"Rogue and Druid Player tracker plus the custom Target portrait combo arc.")
+    comboSection.toggle=MakeButton(comboSection,"",220,24); comboSection.toggle:SetPoint("TOPLEFT",comboSection,"TOPLEFT",14,-52)
+    comboSection.toggle:SetScript("OnClick",function() SF:SetComboPointsEnabled(not SlamFramesDB.showComboPoints,true); SF:RefreshSettings() end)
+
+    -- Target combo controls are the only controls in this section that
+    -- affect the Target-frame arc. Give them their own visual group so Player
+    -- X/Y offsets below cannot be mistaken for Target positioning controls.
+    comboSection.targetGroup=CreateFrame("Frame",nil,comboSection)
+    comboSection.targetGroup:SetPoint("TOPRIGHT",comboSection,"TOPRIGHT",-8,-42)
+    comboSection.targetGroup:SetWidth(244); comboSection.targetGroup:SetHeight(84)
+    comboSection.targetGroup:SetBackdrop({
+        bgFile="Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",
+        tile=true,tileSize=16,edgeSize=10,
+        insets={left=3,right=3,top=3,bottom=3}
+    })
+    comboSection.targetGroup:SetBackdropColor(0.04,0.035,0.025,0.55)
+    comboSection.targetGroup:SetBackdropBorderColor(GOLD_DIM[1],GOLD_DIM[2],GOLD_DIM[3],0.82)
+
+    comboSection.target=MakeButton(comboSection.targetGroup,"",220,24); comboSection.target:SetPoint("TOPLEFT",comboSection.targetGroup,"TOPLEFT",12,-9)
+    comboSection.target:SetScript("OnClick",function() SF:SetTargetComboPointsEnabled(not SlamFramesDB.showTargetComboPoints,true); SF:RefreshSettings() end)
+    f.comboScaleRow=AddScaleRow(comboSection,"Player scale",-94,function() return SlamFramesDB.comboPointScale or 1.00 end,function(v,q) SF:SetComboPointScale(v,q) end,.05)
+
+    -- Independent Target arc scale lives inside the same Target-only box.
+    local tcr={}
+    tcr.label=MakeLabel(comboSection.targetGroup,"Target scale",11,WHITE_TEXT); tcr.label:SetPoint("TOPLEFT",comboSection.targetGroup,"TOPLEFT",12,-50)
+    tcr.value=MakeLabel(comboSection.targetGroup,"1.50",11,GOLD); tcr.value:SetPoint("TOPLEFT",comboSection.targetGroup,"TOPLEFT",112,-50); tcr.value:SetWidth(44); tcr.value:SetJustifyH("CENTER")
+    tcr.minus=MakeButton(comboSection.targetGroup,"-",30,21); tcr.minus:SetPoint("TOPLEFT",comboSection.targetGroup,"TOPLEFT",164,-46)
+    tcr.minus:SetScript("OnClick",function() SF:SetTargetComboPointScale((SlamFramesDB.targetComboPointScale or 1.50)-.05,true); SF:RefreshSettings() end)
+    tcr.plus=MakeButton(comboSection.targetGroup,"+",30,21); tcr.plus:SetPoint("TOPLEFT",comboSection.targetGroup,"TOPLEFT",202,-46)
+    tcr.plus:SetScript("OnClick",function() SF:SetTargetComboPointScale((SlamFramesDB.targetComboPointScale or 1.50)+.05,true); SF:RefreshSettings() end)
+    tcr.getValue=function() return SlamFramesDB.targetComboPointScale or 1.50 end
+    f.targetComboScaleRow=tcr
+
+    comboSection.xLabel=MakeLabel(comboSection,"Player X offset",10,WHITE_TEXT); comboSection.xLabel:SetPoint("TOPLEFT",comboSection,"TOPLEFT",14,-132)
+    comboSection.xValue=MakeLabel(comboSection,"0",10,GOLD); comboSection.xValue:SetPoint("TOPLEFT",comboSection,"TOPLEFT",108,-132); comboSection.xValue:SetWidth(42); comboSection.xValue:SetJustifyH("CENTER")
+    comboSection.xMinus=MakeButton(comboSection,"-",30,21); comboSection.xMinus:SetPoint("TOPLEFT",comboSection,"TOPLEFT",158,-128); comboSection.xMinus:SetScript("OnClick",function() SF:SetComboPointOffset("x",(SlamFramesDB.comboPointXOffset or 0)-5,true); SF:RefreshSettings() end)
+    comboSection.xPlus=MakeButton(comboSection,"+",30,21); comboSection.xPlus:SetPoint("TOPLEFT",comboSection,"TOPLEFT",196,-128); comboSection.xPlus:SetScript("OnClick",function() SF:SetComboPointOffset("x",(SlamFramesDB.comboPointXOffset or 0)+5,true); SF:RefreshSettings() end)
+
+    comboSection.yLabel=MakeLabel(comboSection,"Player Y offset",10,WHITE_TEXT); comboSection.yLabel:SetPoint("TOPLEFT",comboSection,"TOPLEFT",260,-132)
+    comboSection.yValue=MakeLabel(comboSection,"0",10,GOLD); comboSection.yValue:SetPoint("TOPLEFT",comboSection,"TOPLEFT",354,-132); comboSection.yValue:SetWidth(42); comboSection.yValue:SetJustifyH("CENTER")
+    comboSection.yMinus=MakeButton(comboSection,"-",30,21); comboSection.yMinus:SetPoint("TOPLEFT",comboSection,"TOPLEFT",404,-128); comboSection.yMinus:SetScript("OnClick",function() SF:SetComboPointOffset("y",(SlamFramesDB.comboPointYOffset or 0)-5,true); SF:RefreshSettings() end)
+    comboSection.yPlus=MakeButton(comboSection,"+",30,21); comboSection.yPlus:SetPoint("TOPLEFT",comboSection,"TOPLEFT",442,-128); comboSection.yPlus:SetScript("OnClick",function() SF:SetComboPointOffset("y",(SlamFramesDB.comboPointYOffset or 0)+5,true); SF:RefreshSettings() end)
+    comboSection.reset=MakeButton(comboSection,"Reset Player Combo Layout",220,24); comboSection.reset:SetPoint("TOPLEFT",comboSection,"TOPLEFT",14,-170); comboSection.reset:SetScript("OnClick",function() SF:ResetComboPointLayout(true); SF:RefreshSettings() end)
+    comboSection.druid=MakeButton(comboSection,"",220,24); comboSection.druid:SetPoint("TOPRIGHT",comboSection,"TOPRIGHT",-14,-170)
+    comboSection.druid:SetScript("OnClick",function() SF:SetComboDruidHideOutsideCat(not SlamFramesDB.comboDruidHideOutsideCat,true); SF:RefreshSettings() end)
+    local chelp=MakeLabel(comboSection,"Player scale/offset controls affect only the Player tracker. Boxed Target controls affect only the Target portrait arc.",8,MUTED); chelp:SetPoint("TOPLEFT",comboSection,"TOPLEFT",14,-205); chelp:SetWidth(474)
+    f.comboSection=comboSection
+
+    -- PET -------------------------------------------------------------------
+    local petPage=f.pages.pet
+    local petMain=MakeSection(petPage,"Pet Frame",0,0,504,112,"Hunter and Warlock companion frame controls.")
+    petMain.toggle=MakeButton(petMain,"",220,24); petMain.toggle:SetPoint("TOPLEFT",petMain,"TOPLEFT",14,-52)
+    petMain.toggle:SetScript("OnClick",function() SF:SetPetFrameEnabled(not SlamFramesDB.showPetFrame,true); SF:RefreshSettings() end)
+    petMain.reset=MakeButton(petMain,"Reset Pet Position",220,24); petMain.reset:SetPoint("TOPRIGHT",petMain,"TOPRIGHT",-14,-52)
+    petMain.reset:SetScript("OnClick",function() SF:ResetPetPosition() end)
+    local pmh=MakeLabel(petMain,"Unlock frames to drag the Pet Frame. Its position remains independent from Player and Party.",9,MUTED); pmh:SetPoint("TOPLEFT",petMain,"TOPLEFT",14,-84); pmh:SetWidth(474)
+
+    local petAppearance=MakeSection(petPage,"Frame Appearance",0,-124,246,214,"Size and portrait presentation.")
+    f.petScaleRow=AddScaleRow(petAppearance,"Scale",-54,function() return SlamFramesDB.scales.pet or .60 end,function(v,q) SF:SetFrameScale("pet",v,q) end,.05)
+    f.petWidthRow=AddWidthRow(petAppearance,"Bar length",-88,"pet")
+    petAppearance.zoomLabel=MakeLabel(petAppearance,"Portrait zoom",10,WHITE_TEXT); petAppearance.zoomLabel:SetPoint("TOPLEFT",petAppearance,"TOPLEFT",14,-126)
+    -- keep the portrait-zoom value in its own center column.
+    -- The previous TOPRIGHT anchor overlapped the +/- buttons in the Pet panel.
+    petAppearance.zoomValue=MakeLabel(petAppearance,"1.08",10,GOLD); petAppearance.zoomValue:SetPoint("TOPLEFT",petAppearance,"TOPLEFT",114,-126); petAppearance.zoomValue:SetWidth(44); petAppearance.zoomValue:SetJustifyH("CENTER")
+    petAppearance.zoomMinus=MakeButton(petAppearance,"-",30,21); petAppearance.zoomMinus:SetPoint("TOPLEFT",petAppearance,"TOPLEFT",166,-122); petAppearance.zoomMinus:SetScript("OnClick",function() SF:SetPortraitZoom("pet",((SlamFramesDB.portraitZooms and SlamFramesDB.portraitZooms.pet) or 1.08)-0.05,true); SF:RefreshSettings() end)
+    petAppearance.zoomPlus=MakeButton(petAppearance,"+",30,21); petAppearance.zoomPlus:SetPoint("TOPLEFT",petAppearance,"TOPLEFT",204,-122); petAppearance.zoomPlus:SetScript("OnClick",function() SF:SetPortraitZoom("pet",((SlamFramesDB.portraitZooms and SlamFramesDB.portraitZooms.pet) or 1.08)+0.05,true); SF:RefreshSettings() end)
+    local pah=MakeLabel(petAppearance,"Uses the same compact frame language as ToT while remaining independently configurable.",8,MUTED); pah:SetPoint("TOPLEFT",petAppearance,"TOPLEFT",14,-164); pah:SetWidth(216)
+
+    local petIcon=MakeSection(petPage,"Hunter Happiness Icon",258,-124,246,310,"Status visibility and placement.")
+    petIcon.status=MakeButton(petIcon,"",216,24); petIcon.status:SetPoint("TOPLEFT",petIcon,"TOPLEFT",14,-52)
+    petIcon.status:SetScript("OnClick",function() SF:SetHunterPetStatusIconEnabled(not SlamFramesDB.showHunterPetStatusIcon,true); SF:RefreshSettings() end)
+    petIcon.statusScaleLabel=MakeLabel(petIcon,"Icon Scale",10,WHITE_TEXT); petIcon.statusScaleLabel:SetPoint("TOPLEFT",petIcon,"TOPLEFT",14,-91)
+    petIcon.statusScaleValue=MakeLabel(petIcon,"200%",10,GOLD); petIcon.statusScaleValue:SetPoint("TOPLEFT",petIcon,"TOPLEFT",114,-91); petIcon.statusScaleValue:SetWidth(44); petIcon.statusScaleValue:SetJustifyH("CENTER")
+    petIcon.statusScaleMinus=MakeButton(petIcon,"-",30,21); petIcon.statusScaleMinus:SetPoint("TOPLEFT",petIcon,"TOPLEFT",166,-87); petIcon.statusScaleMinus:SetScript("OnClick",function() SF:SetPetStatusIconScale((SlamFramesDB.petStatusIconScale or 2.00)-0.25,true); SF:RefreshSettings() end)
+    petIcon.statusScalePlus=MakeButton(petIcon,"+",30,21); petIcon.statusScalePlus:SetPoint("TOPLEFT",petIcon,"TOPLEFT",204,-87); petIcon.statusScalePlus:SetScript("OnClick",function() SF:SetPetStatusIconScale((SlamFramesDB.petStatusIconScale or 2.00)+0.25,true); SF:RefreshSettings() end)
+    petIcon.statusPosition=MakeButton(petIcon,"",216,24); petIcon.statusPosition:SetPoint("TOPLEFT",petIcon,"TOPLEFT",14,-122)
+    petIcon.statusPosition:SetScript("OnClick",function() SF:CyclePetStatusIconPosition(true); SF:RefreshSettings() end)
+    petIcon.statusDistanceLabel=MakeLabel(petIcon,"Side Distance",10,WHITE_TEXT); petIcon.statusDistanceLabel:SetPoint("TOPLEFT",petIcon,"TOPLEFT",14,-161)
+    petIcon.statusDistanceValue=MakeLabel(petIcon,"0",10,GOLD); petIcon.statusDistanceValue:SetPoint("TOPRIGHT",petIcon,"TOPRIGHT",-14,-161); petIcon.statusDistanceValue:SetWidth(40); petIcon.statusDistanceValue:SetJustifyH("RIGHT")
+    petIcon.statusDistanceSlider=CreateFrame("Slider",nil,petIcon)
+    petIcon.statusDistanceSlider:SetOrientation("HORIZONTAL"); petIcon.statusDistanceSlider:SetPoint("TOPLEFT",petIcon,"TOPLEFT",14,-184); petIcon.statusDistanceSlider:SetWidth(216); petIcon.statusDistanceSlider:SetHeight(16)
+    petIcon.statusDistanceSlider:SetMinMaxValues(0,40); if petIcon.statusDistanceSlider.SetValueStep then petIcon.statusDistanceSlider:SetValueStep(1) end
+    petIcon.statusDistanceTrack=MakeSolid(petIcon.statusDistanceSlider,"BACKGROUND",0.18,0.16,0.12,0.85); petIcon.statusDistanceTrack:SetPoint("LEFT",petIcon.statusDistanceSlider,"LEFT",0,0); petIcon.statusDistanceTrack:SetPoint("RIGHT",petIcon.statusDistanceSlider,"RIGHT",0,0); petIcon.statusDistanceTrack:SetHeight(5)
+    petIcon.statusDistanceFill=MakeSolid(petIcon.statusDistanceSlider,"BORDER",GOLD_DIM[1],GOLD_DIM[2],GOLD_DIM[3],0.95); petIcon.statusDistanceFill:SetPoint("LEFT",petIcon.statusDistanceSlider,"LEFT",0,0); petIcon.statusDistanceFill:SetHeight(3)
+    petIcon.statusDistanceThumb=MakeSolid(petIcon.statusDistanceSlider,"OVERLAY",GOLD[1],GOLD[2],GOLD[3],1); petIcon.statusDistanceThumb:SetWidth(10); petIcon.statusDistanceThumb:SetHeight(18); petIcon.statusDistanceSlider:SetThumbTexture(petIcon.statusDistanceThumb)
+    petIcon.statusDistanceSlider:SetScript("OnValueChanged",function()
+        if petIcon.statusDistanceSuppress then return end
+        local v=math.floor(this:GetValue()+0.5)
+        SF:SetPetStatusSideDistance(v,true)
+        petIcon.statusDistanceValue:SetText(tostring(v))
+        petIcon.statusDistanceFill:SetWidth(math.max(1,this:GetWidth()*(v/40)))
+    end)
+    local pidh=MakeLabel(petIcon,"Only Health Left / Right use this distance. Portrait position stays fixed.",8,MUTED); pidh:SetPoint("TOPLEFT",petIcon,"TOPLEFT",14,-210); pidh:SetWidth(216)
+    local pih2=MakeLabel(petIcon,"Position cycles: Portrait  ->  Health Left  ->  Health Right.",8,MUTED); pih2:SetPoint("TOPLEFT",petIcon,"TOPLEFT",14,-242); pih2:SetWidth(216)
+
+    local petAlerts=MakeSection(petPage,"Happiness Alerts",0,-446,504,144,"Optional warnings when happiness drops from green.")
+    petAlerts.alerts=MakeButton(petAlerts,"",220,24); petAlerts.alerts:SetPoint("TOPLEFT",petAlerts,"TOPLEFT",14,-52)
+    petAlerts.alerts:SetScript("OnClick",function() SF:SetPetHappinessAlertsEnabled(not SlamFramesDB.petHappinessAlerts,true); SF:RefreshSettings() end)
+    petAlerts.flash=MakeButton(petAlerts,"",220,24); petAlerts.flash:SetPoint("TOPRIGHT",petAlerts,"TOPRIGHT",-14,-52)
+    petAlerts.flash:SetScript("OnClick",function() SF:SetPetHappinessTaskbarFlashEnabled(not SlamFramesDB.petHappinessTaskbarFlash,true); SF:RefreshSettings() end)
+    petAlerts.testYellow=MakeButton(petAlerts,"Test Yellow",220,24); petAlerts.testYellow:SetPoint("TOPLEFT",petAlerts,"TOPLEFT",14,-84); petAlerts.testYellow:SetScript("OnClick",function() SF:TriggerPetHappinessAlert(2,true) end)
+    petAlerts.testRed=MakeButton(petAlerts,"Test Red",220,24); petAlerts.testRed:SetPoint("TOPRIGHT",petAlerts,"TOPRIGHT",-14,-84); petAlerts.testRed:SetScript("OnClick",function() SF:TriggerPetHappinessAlert(1,true) end)
+    local palert=MakeLabel(petAlerts,"Yellow gives a normal warning. Red uses the urgent raid-warning treatment and taskbar flash when available.",8,MUTED); palert:SetPoint("TOPLEFT",petAlerts,"TOPLEFT",14,-116); palert:SetWidth(474)
+
+    local petFeed=MakeSection(petPage,"Feeding Glow",0,-602,504,118,"At-a-glance confirmation that Feed Pet Effect is active.")
+    petFeed.feeding=MakeButton(petFeed,"",220,24); petFeed.feeding:SetPoint("TOPLEFT",petFeed,"TOPLEFT",14,-52)
+    petFeed.feeding:SetScript("OnClick",function() SF:SetPetFeedingGlowEnabled(not SlamFramesDB.showPetFeedingGlow,true); SF:RefreshSettings() end)
+    local pfh1=MakeLabel(petFeed,"Green portrait glow appears only while the 20-second Feed Pet Effect aura is active.",9,WHITE_TEXT); pfh1:SetPoint("TOPLEFT",petFeed,"TOPLEFT",250,-49); pfh1:SetWidth(238)
+    local pfh2=MakeLabel(petFeed,"It disappears immediately if feeding ends early because the pet enters combat or the aura is removed.",8,MUTED); pfh2:SetPoint("TOPLEFT",petFeed,"TOPLEFT",250,-76); pfh2:SetWidth(238)
+
+    -- RefreshSettings historically expects one Pet-section table.  Keep the
+    -- actual happiness-icon frame as that table so its slider suppression flag
+    -- remains shared with the OnValueChanged closure.
+    petIcon.toggle=petMain.toggle
+    petIcon.alerts=petAlerts.alerts
+    petIcon.flash=petAlerts.flash
+    petIcon.feeding=petFeed.feeding
+    petIcon.zoomValue=petAppearance.zoomValue
+    local petSection=petIcon
+
+    -- FOCUS -----------------------------------------------------------------
+    local focusPage=f.pages.focus
+    local focusMain=MakeSection(focusPage,"Focus Frame",0,0,504,142,"Portraitless secondary-target health frame. Uses native Focus when available and SuperWoW-aware tracking on Vanilla.")
+    focusMain.toggle=MakeButton(focusMain,"",220,24); focusMain.toggle:SetPoint("TOPLEFT",focusMain,"TOPLEFT",14,-52)
+    focusMain.toggle:SetScript("OnClick",function() SF:SetFocusEnabled(not SlamFramesDB.showFocusFrame,true); SF:RefreshSettings() end)
+    focusMain.set=MakeButton(focusMain,"Set Current Target",126,24); focusMain.set:SetPoint("TOPRIGHT",focusMain,"TOPRIGHT",-144,-52)
+    focusMain.set:SetScript("OnClick",function() SF:SetFocusFromUnit("target",false); SF:RefreshSettings() end)
+    focusMain.clear=MakeButton(focusMain,"Clear Focus",118,24); focusMain.clear:SetPoint("TOPRIGHT",focusMain,"TOPRIGHT",-14,-52)
+    focusMain.clear:SetScript("OnClick",function() SF:ClearFocus(false); SF:RefreshSettings() end)
+    focusMain.current=MakeLabel(focusMain,"Focused: None",10,WHITE_TEXT); focusMain.current:SetPoint("TOPLEFT",focusMain,"TOPLEFT",14,-88); focusMain.current:SetWidth(474)
+    local fhint=MakeLabel(focusMain,"/sf focus sets your current target. /sf focus <name> and /sf clearfocus are also available.",8,MUTED); fhint:SetPoint("TOPLEFT",focusMain,"TOPLEFT",14,-112); fhint:SetWidth(474)
+
+    local focusGeom=MakeSection(focusPage,"Size & Position",0,-154,504,220)
+    f.focusScaleRow=AddScaleRow(focusGeom,"Scale",-43,function() return SlamFramesDB.focusScale or .75 end,function(v,q) SF:SetFocusScale(v,q) end,.05)
+
+    focusGeom.widthLabel=MakeLabel(focusGeom,"Width",10,WHITE_TEXT); focusGeom.widthLabel:SetPoint("TOPLEFT",focusGeom,"TOPLEFT",14,-82)
+    focusGeom.widthValue=MakeLabel(focusGeom,"340",10,GOLD); focusGeom.widthValue:SetPoint("TOPRIGHT",focusGeom,"TOPRIGHT",-14,-82); focusGeom.widthValue:SetWidth(48); focusGeom.widthValue:SetJustifyH("RIGHT")
+    focusGeom.widthSlider=CreateFrame("Slider",nil,focusGeom); focusGeom.widthSlider:SetOrientation("HORIZONTAL"); focusGeom.widthSlider:SetPoint("TOPLEFT",focusGeom,"TOPLEFT",88,-103); focusGeom.widthSlider:SetWidth(388); focusGeom.widthSlider:SetHeight(16)
+    focusGeom.widthSlider:SetMinMaxValues(220,520); if focusGeom.widthSlider.SetValueStep then focusGeom.widthSlider:SetValueStep(10) end
+    focusGeom.widthTrack=MakeSolid(focusGeom.widthSlider,"BACKGROUND",0.22,0.18,0.10,1); focusGeom.widthTrack:SetPoint("LEFT",focusGeom.widthSlider,"LEFT",0,0); focusGeom.widthTrack:SetPoint("RIGHT",focusGeom.widthSlider,"RIGHT",0,0); focusGeom.widthTrack:SetHeight(5)
+    focusGeom.widthFill=MakeSolid(focusGeom.widthSlider,"BORDER",0.78,0.56,0.06,1); focusGeom.widthFill:SetPoint("LEFT",focusGeom.widthSlider,"LEFT",0,0); focusGeom.widthFill:SetHeight(3)
+    focusGeom.widthThumb=MakeSolid(focusGeom.widthSlider,"OVERLAY",GOLD[1],GOLD[2],GOLD[3],1); focusGeom.widthThumb:SetWidth(12); focusGeom.widthThumb:SetHeight(18); focusGeom.widthSlider:SetThumbTexture(focusGeom.widthThumb)
+    focusGeom.widthSlider:SetScript("OnValueChanged",function()
+        if focusGeom.widthSuppress then return end
+        local v=math.floor((this:GetValue()+5)/10)*10
+        SF:SetFocusWidth(v,true); focusGeom.widthValue:SetText(tostring(v)); focusGeom.widthFill:SetWidth(math.max(1,this:GetWidth()*((v-220)/300)))
+    end)
+
+    focusGeom.heightLabel=MakeLabel(focusGeom,"Height",10,WHITE_TEXT); focusGeom.heightLabel:SetPoint("TOPLEFT",focusGeom,"TOPLEFT",14,-132)
+    focusGeom.heightValue=MakeLabel(focusGeom,"64",10,GOLD); focusGeom.heightValue:SetPoint("TOPRIGHT",focusGeom,"TOPRIGHT",-14,-132); focusGeom.heightValue:SetWidth(48); focusGeom.heightValue:SetJustifyH("RIGHT")
+    focusGeom.heightSlider=CreateFrame("Slider",nil,focusGeom); focusGeom.heightSlider:SetOrientation("HORIZONTAL"); focusGeom.heightSlider:SetPoint("TOPLEFT",focusGeom,"TOPLEFT",88,-153); focusGeom.heightSlider:SetWidth(388); focusGeom.heightSlider:SetHeight(16)
+    focusGeom.heightSlider:SetMinMaxValues(46,100); if focusGeom.heightSlider.SetValueStep then focusGeom.heightSlider:SetValueStep(2) end
+    focusGeom.heightTrack=MakeSolid(focusGeom.heightSlider,"BACKGROUND",0.22,0.18,0.10,1); focusGeom.heightTrack:SetPoint("LEFT",focusGeom.heightSlider,"LEFT",0,0); focusGeom.heightTrack:SetPoint("RIGHT",focusGeom.heightSlider,"RIGHT",0,0); focusGeom.heightTrack:SetHeight(5)
+    focusGeom.heightFill=MakeSolid(focusGeom.heightSlider,"BORDER",0.78,0.56,0.06,1); focusGeom.heightFill:SetPoint("LEFT",focusGeom.heightSlider,"LEFT",0,0); focusGeom.heightFill:SetHeight(3)
+    focusGeom.heightThumb=MakeSolid(focusGeom.heightSlider,"OVERLAY",GOLD[1],GOLD[2],GOLD[3],1); focusGeom.heightThumb:SetWidth(12); focusGeom.heightThumb:SetHeight(18); focusGeom.heightSlider:SetThumbTexture(focusGeom.heightThumb)
+    focusGeom.heightSlider:SetScript("OnValueChanged",function()
+        if focusGeom.heightSuppress then return end
+        local v=math.floor((this:GetValue()+1)/2)*2
+        SF:SetFocusHeight(v,true); focusGeom.heightValue:SetText(tostring(v)); focusGeom.heightFill:SetWidth(math.max(1,this:GetWidth()*((v-46)/54)))
+    end)
+    focusGeom.reset=MakeButton(focusGeom,"Reset Between Player / Target",250,24); focusGeom.reset:SetPoint("TOPLEFT",focusGeom,"TOPLEFT",14,-184); focusGeom.reset:SetScript("OnClick",function() SF:ResetFocusPosition(false) end)
+    local fgh=MakeLabel(focusGeom,"Unlock Frames to drag. Mouse-wheel the Focus frame for quick scaling.",8,MUTED); fgh:SetPoint("TOPRIGHT",focusGeom,"TOPRIGHT",-14,-188); fgh:SetWidth(214); fgh:SetJustifyH("RIGHT")
+
+    local focusText=MakeSection(focusPage,"Text & Display",0,-386,504,184)
+    local fhl=MakeLabel(focusText,"Health format",10,WHITE_TEXT); fhl:SetPoint("TOPLEFT",focusText,"TOPLEFT",14,-43)
+    focusText.healthButtons={}
+    local fmodes={{"%","percent"},{"Amount","amount"},{"Both","both"},{"Off","off"}}
+    local fx=116
+    for i=1,table.getn(fmodes) do
+        local b=MakeButton(focusText,fmodes[i][1],82,22); b.mode=fmodes[i][2]; b:SetPoint("TOPLEFT",focusText,"TOPLEFT",fx,-39)
+        b:SetScript("OnClick",function() SF:SetFocusHealthTextMode(this.mode,true); SF:RefreshSettings() end)
+        focusText.healthButtons[i]=b; fx=fx+90
+    end
+    focusText.nameScale=AddScaleRow(focusText,"Name text",-86,function() return SlamFramesDB.focusNameTextScale or 1.00 end,function(v,q) SF:SetFocusNameTextScale(v,q) end,.05)
+    focusText.healthScale=AddScaleRow(focusText,"Health text",-121,function() return SlamFramesDB.focusHealthTextScale or 1.00 end,function(v,q) SF:SetFocusHealthTextScale(v,q) end,.05)
+    local fskin=MakeLabel(focusText,"Focus artwork automatically follows the global Light / Dark skin.",8,MUTED); fskin:SetPoint("TOPLEFT",focusText,"TOPLEFT",14,-156); fskin:SetWidth(474)
+
+    f.focusMain=focusMain; f.focusGeom=focusGeom; f.focusText=focusText
 
     -- PARTY -----------------------------------------------------------------
     local ppage=f.pages.party
@@ -858,23 +1175,33 @@ function SF:CreateSettingsPanel()
     local clh1=MakeLabel(clayout,"Reset attaches the cast bar beneath Player. Move mode shows a draggable preview.",10,MUTED); clh1:SetPoint("TOPLEFT",clayout,"TOPLEFT",14,-145)
     local clh2=MakeLabel(clayout,"Width changes use three-slice artwork, so the gold beveled ends never stretch.",9,MUTED); clh2:SetPoint("TOPLEFT",clayout,"TOPLEFT",14,-166)
 
-    local cpreview=MakeSection(cpage,"Preview States",0,-492,504,140)
-    cpreview.cast=MakeButton(cpreview,"Cast",108,26); cpreview.cast:SetPoint("TOPLEFT",cpreview,"TOPLEFT",14,-43); cpreview.cast:SetScript("OnClick",function() SF:PreviewCastBar("cast") end)
-    cpreview.channel=MakeButton(cpreview,"Channel",108,26); cpreview.channel:SetPoint("LEFT",cpreview.cast,"RIGHT",8,0); cpreview.channel:SetScript("OnClick",function() SF:PreviewCastBar("channel") end)
-    cpreview.interrupt=MakeButton(cpreview,"Interrupted",108,26); cpreview.interrupt:SetPoint("LEFT",cpreview.channel,"RIGHT",8,0); cpreview.interrupt:SetScript("OnClick",function() SF:PreviewCastBar("interrupt") end)
-    cpreview.failed=MakeButton(cpreview,"Failed",108,26); cpreview.failed:SetPoint("LEFT",cpreview.interrupt,"RIGHT",8,0); cpreview.failed:SetScript("OnClick",function() SF:PreviewCastBar("fail") end)
-    local cph1=MakeLabel(cpreview,"The latency region is calculated from GetNetStats() for live casts.",10,WHITE_TEXT); cph1:SetPoint("TOPLEFT",cpreview,"TOPLEFT",14,-86)
-    local cph2=MakeLabel(cpreview,"Pure instant spells do not create a cast window; very short timed casts do.",9,MUTED); cph2:SetPoint("TOPLEFT",cpreview,"TOPLEFT",14,-108)
+    local cpreview=MakeSection(cpage,"Preview States",0,-492,504,162)
+    cpreview.cast=MakeButton(cpreview,"Cast",108,24); cpreview.cast:SetPoint("TOPLEFT",cpreview,"TOPLEFT",14,-46); cpreview.cast:SetScript("OnClick",function() SF:PreviewCastBar("cast") end)
+    cpreview.channel=MakeButton(cpreview,"Channel",108,24); cpreview.channel:SetPoint("LEFT",cpreview.cast,"RIGHT",8,0); cpreview.channel:SetScript("OnClick",function() SF:PreviewCastBar("channel") end)
+    cpreview.interrupt=MakeButton(cpreview,"Interrupted",108,24); cpreview.interrupt:SetPoint("LEFT",cpreview.channel,"RIGHT",8,0); cpreview.interrupt:SetScript("OnClick",function() SF:PreviewCastBar("interrupt") end)
+    cpreview.failed=MakeButton(cpreview,"Failed",108,24); cpreview.failed:SetPoint("LEFT",cpreview.interrupt,"RIGHT",8,0); cpreview.failed:SetScript("OnClick",function() SF:PreviewCastBar("fail") end)
+    local cph1=MakeLabel(cpreview,"The latency region is calculated from GetNetStats() for live casts.",10,WHITE_TEXT); cph1:SetPoint("TOPLEFT",cpreview,"TOPLEFT",14,-90)
+    local cph2=MakeLabel(cpreview,"Pure instant spells do not create a cast window; very short timed casts do.",9,MUTED); cph2:SetPoint("TOPLEFT",cpreview,"TOPLEFT",14,-114)
 
     f.castbarMain=cmain; f.castbarErrors=cerrors; f.castbarLayout=clayout; f.castbarPreview=cpreview
 
-    -- Persistent footer -----------------------------------------------------
-    f.reset=MakeButton(f,"Reset All",120,26); f.reset:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",24,24); f.reset:SetScript("OnClick",function() SF:Reset() end)
-    f.test=MakeButton(f,"Test Frames",120,26); f.test:SetPoint("BOTTOM",f,"BOTTOM",0,24); f.test:SetScript("OnClick",function() SF.testMode=not SF.testMode; SlamFramesDB.testMode=SF.testMode; SF:RefreshAll(); SF:RefreshSettings() end)
-    f.done=MakeButton(f,"Close",120,26); f.done:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-24,24); f.done:SetScript("OnClick",function() f:Hide() end)
+    -- Quick actions live in the navigation rail, matching the SlamSwing shell
+    -- while keeping the content pages free of persistent button clutter.
+    -- Quick actions live in the lower-right footer area so the left rail stays clean.
+    f.done=MakeButton(f,"Close",92,24); f.done:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-24,42); f.done:SetScript("OnClick",function() f:Hide() end)
+    f.test=MakeButton(f,"Test Frames",104,24); f.test:SetPoint("RIGHT",f.done,"LEFT",-8,0); f.test:SetScript("OnClick",function() SF.testMode=not SF.testMode; SlamFramesDB.testMode=SF.testMode; SF:RefreshAll(); SF:RefreshSettings() end)
+    f.reset=MakeButton(f,"Reset All",92,24); f.reset:SetPoint("RIGHT",f.test,"LEFT",-8,0); f.reset:SetScript("OnClick",function() SF:Reset() end)
+
+    local footer=MakeLabel(f,"SlamFrames  |  Unit Frames for Vanilla  |  /sf",9,MUTED)
+    footer:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",24,16)
+    f.footer=footer
+    local version=MakeLabel(f,"v"..(C.version or ""),8,MUTED)
+    version:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-24,16)
+    f.versionLabel=version
 
     f.generalDisplay=display; f.generalInteraction=interaction; f.generalMinimap=minimap
     f.layoutAuraSection=auraSection
+    f.layoutPetSection=petSection
     f.effectsRest=rest; f.effectsCombat=combat; f.effectsCC=cc
 
     ShowPage(f,"general")
@@ -938,9 +1265,17 @@ function SF:RefreshSettings()
         row.fill:SetWidth(math.max(1,row.slider:GetWidth()*((v-1.00)/0.50)))
     end
 
-    local rows={f.nameScaleRow,f.healthScaleRow,f.powerScaleRow,f.levelScaleRow,f.auraScaleRow}
+    local rows={f.nameScaleRow,f.healthScaleRow,f.powerScaleRow,f.levelScaleRow,f.auraScaleRow,f.comboScaleRow,f.targetComboScaleRow}
     for i=1,table.getn(rows) do
         if rows[i] and rows[i].value and rows[i].getValue then rows[i].value:SetText(string.format("%.2f",rows[i].getValue())) end
+    end
+
+    if f.comboSection then
+        f.comboSection.toggle:SetText("Player Combo: "..(SlamFramesDB.showComboPoints and "ON" or "OFF"))
+        if f.comboSection.target then f.comboSection.target:SetText("Target Combo: "..(SlamFramesDB.showTargetComboPoints~=false and "ON" or "OFF")) end
+        f.comboSection.druid:SetText("Druid Hide Outside Cat: "..(SlamFramesDB.comboDruidHideOutsideCat and "ON" or "OFF"))
+        f.comboSection.xValue:SetText(tostring(math.floor((tonumber(SlamFramesDB.comboPointXOffset) or 0)+0.5)))
+        f.comboSection.yValue:SetText(tostring(math.floor((tonumber(SlamFramesDB.comboPointYOffset) or 0)+0.5)))
     end
 
     if f.layoutAuraSection and f.layoutAuraSection.rowGapSlider then
@@ -962,6 +1297,57 @@ function SF:RefreshSettings()
             f.layoutAuraSection.timerScaleValue:SetText(tostring(math.floor(v*100+0.5)).."%")
             f.layoutAuraSection.timerScaleFill:SetWidth(math.max(1,f.layoutAuraSection.timerScaleSlider:GetWidth()*((v-0.50)/1.50)))
         end
+    end
+
+    if f.layoutPetSection then
+        f.layoutPetSection.toggle:SetText("Pet Frame: "..(SlamFramesDB.showPetFrame and "ON" or "OFF"))
+        f.layoutPetSection.status:SetText("Hunter Status Icon: "..(SlamFramesDB.showHunterPetStatusIcon and "ON" or "OFF"))
+        local ps=tonumber(SlamFramesDB.petStatusIconScale) or 2.00
+        f.layoutPetSection.statusScaleValue:SetText(tostring(math.floor(ps*100+0.5)).."%")
+        local pos=SlamFramesDB.petStatusIconPosition or "portrait"
+        local posLabel="Portrait"
+        if pos=="healthleft" then posLabel="Health Left" elseif pos=="healthright" then posLabel="Health Right" end
+        f.layoutPetSection.statusPosition:SetText("Status Position: "..posLabel)
+        if f.layoutPetSection.statusDistanceSlider then
+            local d=tonumber(SlamFramesDB.petStatusSideDistance) or 0
+            if d<0 then d=0 elseif d>40 then d=40 end
+            f.layoutPetSection.statusDistanceSuppress=true
+            f.layoutPetSection.statusDistanceSlider:SetValue(d)
+            f.layoutPetSection.statusDistanceSuppress=nil
+            f.layoutPetSection.statusDistanceValue:SetText(tostring(math.floor(d+0.5)))
+            f.layoutPetSection.statusDistanceFill:SetWidth(math.max(1,f.layoutPetSection.statusDistanceSlider:GetWidth()*(d/40)))
+        end
+        f.layoutPetSection.alerts:SetText("Happiness Alerts: "..(SlamFramesDB.petHappinessAlerts and "ON" or "OFF"))
+        f.layoutPetSection.flash:SetText("Red Taskbar Flash: "..(SlamFramesDB.petHappinessTaskbarFlash and "ON" or "OFF"))
+        if f.layoutPetSection.feeding then f.layoutPetSection.feeding:SetText("Feeding Glow: "..(SlamFramesDB.showPetFeedingGlow and "ON" or "OFF")) end
+        local pz=(SlamFramesDB.portraitZooms and SlamFramesDB.portraitZooms.pet) or 1.08
+        f.layoutPetSection.zoomValue:SetText(string.format("%.2f",pz))
+    end
+    if f.petScaleRow and f.petScaleRow.value then f.petScaleRow.value:SetText(string.format("%.2f",SlamFramesDB.scales.pet or .60)) end
+    if f.petWidthRow then f.petWidthRow.value:SetText(tostring(SF.WidthPercent("pet",C.tot)).."%") end
+
+    if f.focusMain then
+        f.focusMain.toggle:SetText("Focus Frame: "..(SlamFramesDB.showFocusFrame and "ON" or "OFF"))
+        local state=SF.focusState or {}
+        local focused=state.name or ((SF.testMode and "Rogar") or "None")
+        f.focusMain.current:SetText("Focused: "..tostring(focused))
+    end
+    if f.focusScaleRow and f.focusScaleRow.value then f.focusScaleRow.value:SetText(string.format("%.2f",SlamFramesDB.focusScale or .75)) end
+    if f.focusGeom then
+        local fw=tonumber(SlamFramesDB.focusWidth) or 340
+        f.focusGeom.widthSuppress=true; f.focusGeom.widthSlider:SetValue(fw); f.focusGeom.widthSuppress=nil
+        f.focusGeom.widthValue:SetText(tostring(math.floor(fw+0.5))); f.focusGeom.widthFill:SetWidth(math.max(1,f.focusGeom.widthSlider:GetWidth()*((fw-220)/300)))
+        local fh=tonumber(SlamFramesDB.focusHeight) or 64
+        f.focusGeom.heightSuppress=true; f.focusGeom.heightSlider:SetValue(fh); f.focusGeom.heightSuppress=nil
+        f.focusGeom.heightValue:SetText(tostring(math.floor(fh+0.5))); f.focusGeom.heightFill:SetWidth(math.max(1,f.focusGeom.heightSlider:GetWidth()*((fh-46)/54)))
+    end
+    if f.focusText then
+        for i=1,table.getn(f.focusText.healthButtons or {}) do
+            b=f.focusText.healthButtons[i]
+            if b.mode==(SlamFramesDB.focusHealthTextMode or "amount") then b:Disable(); TintButton(b,true) else b:Enable(); TintButton(b,false) end
+        end
+        if f.focusText.nameScale and f.focusText.nameScale.value then f.focusText.nameScale.value:SetText(string.format("%.2f",SlamFramesDB.focusNameTextScale or 1.00)) end
+        if f.focusText.healthScale and f.focusText.healthScale.value then f.focusText.healthScale.value:SetText(string.format("%.2f",SlamFramesDB.focusHealthTextScale or 1.00)) end
     end
 
     if f.partyMain then
