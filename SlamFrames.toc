@@ -2,7 +2,7 @@
 ## Title: SlamFrames
 ## Notes: Custom Player, Target, Pet, Focus, Party and Raid frames with combo points, click casting, and Light/Dark artwork for Vanilla clients.
 ## Author: Amrish + ChatGPT
-## Version: 3.3
+## Version: 3.3.1
 ## SavedVariables: SlamFramesDB, SlamFramesAccountDB
 ## SavedVariablesPerCharacter: SlamFramesCharacterDB
 ## OptionalDeps: HealComm

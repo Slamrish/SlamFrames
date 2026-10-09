@@ -1,3 +1,11 @@
+SlamFrames v3.3.1
+
+- Fixed chat spam caused by optional AceLibrary lookups when HealComm-1.0 is absent.
+- Check optional HealComm, AceEvent, RosterLib and ItemBonusLib instances before loading them.
+- Preserve automatic detection when optional HealComm is installed or loaded later.
+- Added clearer in-game predictive healing text and README support instructions.
+- No gameplay/art/skin changes beyond optional-library handling.
+
 SlamFrames v3.3
 
 - Added Rogue/Druid Player combo-point tracker with Normal, Rare/Elite and Boss visuals for Light and Dark skins.

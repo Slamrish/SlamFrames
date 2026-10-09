@@ -1,6 +1,8 @@
-# SlamFrames 3.3
+# SlamFrames 3.3.1
 
 **Custom unit frames for OctoWoW and compatible Vanilla / WoW 1.12-style clients.**
+
+**3.3.1 hotfix:** Optional HealComm and other Ace2 libraries are now checked before use. If you do not have HealComm installed, SlamFrames loads normally without chat error spam. No changes to frame artwork or cast-bar styles.
 
 SlamFrames provides Player, Target, Target-of-Target, Pet, Focus, Party and Raid frames in matching Light and Dark themes, with configurable layouts and high-resolution artwork.
 
@@ -26,10 +28,21 @@ SlamFrames provides Player, Target, Target-of-Target, Pet, Focus, Party and Raid
 - Light and Dark art with dedicated 1080p and 4K texture options
 - Per-character settings and in-game **Test Frames** preview mode
 
+## Optional HealComm / predictive healing
+
+**HealComm-1.0 is NOT required to use SlamFrames.** It is an optional library used for incoming-heal prediction (the pale green extension on health bars). The addon works without it: regular unit frames, Party/Raid frames, click casting, Focus/Pet frames, combo points, and cast bars continue to operate normally. Without a compatible HealComm library, HealComm-based predictions are unavailable.
+
+- To use cooperative incoming-heal predictions, install and enable a **Vanilla 1.12 / OctoWoW-compatible addon providing the AceLibrary instance `HealComm-1.0`**. The addon name alone is not enough; it must actually provide that library instance.
+- If you do not use heal prediction, there is **nothing else to install**. The Predictive Healing setting can be turned off under SlamFrames settings, but leaving it on without HealComm should not produce errors.
+- You can inspect the integration manually with `/sf healpredict status`. It reports whether HealComm is available, and does not install anything.
+- If you see `Cannot find a library instance of HealComm-1.0`, ensure you are running **3.3.1 or newer** and that no old SlamFrames files remain in your AddOns folder. If a compatible provider is installed, check that it is enabled and loads successfully.
+
+HealComm is **not bundled** with SlamFrames, and it is declared as an optional dependency in `SlamFrames.toc`.
+
 ## Install
 
 1. Exit World of Warcraft completely.
-2. Extract `SlamFrames-3.3.zip`.
+2. Extract `SlamFrames-3.3.1.zip`.
 3. Copy the **SlamFrames** folder into your game's `Interface\AddOns` directory.
 4. Confirm this exact file exists:
 
@@ -40,7 +53,7 @@ SlamFrames provides Player, Target, Target-of-Target, Pet, Focus, Party and Raid
 5. Start the game and enable SlamFrames in the AddOns list (if necessary).
 6. Type `/sf settings` to configure it. Set your artwork resolution to **1080**, **4K**, or **4K Compatible** as appropriate, then `/reload` when changing art modes.
 
-The archive includes all necessary SlamFrames code and textures; it **does not require an earlier SlamFrames installation**. SuperWoW, Nampower and HealComm-compatible integrations are used where supported by your client; they are not bundled.
+The archive includes all necessary SlamFrames code and textures; it **does not require an earlier SlamFrames installation**. SuperWoW and Nampower extensions are used where supported by your client. HealComm integration is optional and not bundled; see the section above.
 
 ### Upgrading
 

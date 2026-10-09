@@ -1,8 +1,8 @@
-SlamFrames 3.3 - Custom Unit Frames for Vanilla / OctoWoW
+SlamFrames 3.3.1 - Custom Unit Frames for Vanilla / OctoWoW
 
 Quick installation
 1. Close World of Warcraft.
-2. Extract SlamFrames-3.3.zip.
+2. Extract SlamFrames-3.3.1.zip.
 3. Place the SlamFrames folder in World of Warcraft\Interface\AddOns\.
 4. Check that AddOns\SlamFrames\SlamFrames.toc exists.
 5. Start World of Warcraft and enable SlamFrames if necessary.
@@ -21,3 +21,12 @@ No earlier SlamFrames version is required.
 
 Full instructions: README.md
 Project: https://github.com/Slamrish/SlamFrames
+
+Optional HealComm / predictive healing
+HealComm-1.0 is OPTIONAL. SlamFrames works without it and does not require
+installation of a healing library for the standard frames. Installing a
+Vanilla 1.12-compatible addon that supplies the HealComm-1.0 AceLibrary
+instance enables cooperative incoming-heal prediction.
+Missing libraries are silently ignored in 3.3.1. For a manual diagnostic run:
+/sf healpredict status
+See README.md for full details.

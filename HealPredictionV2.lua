@@ -13,9 +13,8 @@ SF.localHealPrediction=SF.localHealPrediction or {}
 
 local function BindHealComm()
     if SF.HealComm and type(SF.HealComm.getHeal)=="function" then return SF.HealComm end
-    if not AceLibrary then return nil end
-    local ok,lib=pcall(function() return AceLibrary("HealComm-1.0") end)
-    if ok and lib and type(lib.getHeal)=="function" then
+    local lib=SF.GetOptionalAceLibrary and SF:GetOptionalAceLibrary("HealComm-1.0") or nil
+    if lib and type(lib.getHeal)=="function" then
         SF.HealComm=lib
         return lib
     end
@@ -35,12 +34,10 @@ local function UnitTokenForName(name)
         u="raid"..i
         if UnitExists(u) and UnitName(u)==name then return u end
     end
-    if AceLibrary then
-        local ok,roster=pcall(function() return AceLibrary("RosterLib-2.0") end)
-        if ok and roster and type(roster.GetUnitIDFromName)=="function" then
-            local ok2,unit=pcall(function() return roster:GetUnitIDFromName(name) end)
-            if ok2 and unit then return unit end
-        end
+    local roster=SF.GetOptionalAceLibrary and SF:GetOptionalAceLibrary("RosterLib-2.0") or nil
+    if roster and type(roster.GetUnitIDFromName)=="function" then
+        local ok2,unit=pcall(function() return roster:GetUnitIDFromName(name) end)
+        if ok2 and unit then return unit end
     end
     return nil
 end
@@ -88,12 +85,10 @@ local function EstimateHeal(hc,unit,spellName,rank)
     if type(formula)~="function" then return nil end
 
     local bonus=0
-    if AceLibrary then
-        local ok,itemBonus=pcall(function() return AceLibrary("ItemBonusLib-1.0") end)
-        if ok and itemBonus and type(itemBonus.GetBonus)=="function" then
-            local ok2,v=pcall(function() return itemBonus:GetBonus("HEAL") end)
-            if ok2 then bonus=tonumber(v) or 0 end
-        end
+    local itemBonus=SF.GetOptionalAceLibrary and SF:GetOptionalAceLibrary("ItemBonusLib-1.0") or nil
+    if itemBonus and type(itemBonus.GetBonus)=="function" then
+        local ok2,v=pcall(function() return itemBonus:GetBonus("HEAL") end)
+        if ok2 then bonus=tonumber(v) or 0 end
     end
 
     local buffPower,buffMod=0,1

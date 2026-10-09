@@ -121,28 +121,46 @@ end
 -- ---------------------------------------------------------------------------
 
 local HealComm = nil
-local AceEvent = nil
 local healCommEventRegistered = false
 
+-- HealComm, AceEvent, RosterLib and ItemBonusLib are *optional* Ace2 libraries.
+-- Asking AceLibrary for a missing instance can invoke the old client's error
+-- reporter, even inside pcall(), producing repeated chat error messages while
+-- heal prediction polls.  Check HasInstance BEFORE attempting any lookup.
+-- Missing libraries are always silent; late-loaded libraries remain detectable.
+function SF:GetOptionalAceLibrary(libraryName)
+    if type(libraryName)~="string" or libraryName=="" then return nil end
+    local kind=type(AceLibrary)
+    if (kind~="table" and kind~="function") then return nil end
+    -- AceLibrary in Ace2 is usually a callable table, not a Lua function.
+    -- Do not index bare function values (unsupported by the Vanilla Lua VM).
+    if kind~="table" or type(AceLibrary.HasInstance)~="function" then return nil end
+    local ok,available=pcall(function() return AceLibrary:HasInstance(libraryName) end)
+    if not ok or not available then return nil end
+    local found,lib=pcall(AceLibrary,libraryName)
+    if found then return lib end
+    return nil
+end
+
 local function TryBindHealComm()
-    if HealComm then return true end
-    if type(AceLibrary) ~= "function" then return false end
+    if HealComm and type(HealComm.getHeal)=="function" then return true end
+    local lib=SF:GetOptionalAceLibrary("HealComm-1.0")
+    if not lib or type(lib.getHeal)~="function" then return false end
+    HealComm=lib
+    SF.HealComm=lib
 
-    local ok, lib = pcall(AceLibrary, "HealComm-1.0")
-    if not ok or not lib or type(lib.getHeal) ~= "function" then return false end
-    HealComm = lib
-    SF.HealComm = lib
-
-    local okEvent, ev = pcall(AceLibrary, "AceEvent-2.0")
-    if okEvent and ev then AceEvent = ev end
-
-    if AceEvent and not healCommEventRegistered then
-        healCommEventRegistered = true
-        AceEvent:RegisterEvent("HealComm_Healupdate", function(unitname)
-            if SF and SF.HealPredictionUpdateForName then
-                SF:HealPredictionUpdateForName(unitname)
-            end
+    local aceEvent=SF:GetOptionalAceLibrary("AceEvent-2.0")
+    if aceEvent and type(aceEvent.RegisterEvent)=="function" and not healCommEventRegistered then
+        -- Event registration is an optimization; the polling path still works
+        -- when AceEvent is absent or doesn't support this callback signature.
+        local registered=pcall(function()
+            aceEvent:RegisterEvent("HealComm_Healupdate", function(unitname)
+                if SF and SF.HealPredictionUpdateForName then
+                    SF:HealPredictionUpdateForName(unitname)
+                end
+            end)
         end)
+        if registered then healCommEventRegistered=true end
     end
     return true
 end
@@ -153,7 +171,7 @@ end
 
 function SF:GetHealPredictionStatus()
     if TryBindHealComm() then return "HealComm-1.0 detected" end
-    return "HealComm-1.0 not detected"
+    return "HealComm-1.0 not detected (optional)"
 end
 
 function SF:GetIncomingHeal(unit)
@@ -521,7 +539,7 @@ if OriginalCreateSettingsPanel then
             b:SetScript("OnEnter", function()
                 GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
                 GameTooltip:SetText("Predictive Healing", 1.0, 0.82, 0.0)
-                GameTooltip:AddLine("Shows incoming HealComm healing as a pale green extension on Player and Target health bars.", 1, 1, 1, true)
+                GameTooltip:AddLine("Incoming-heal overlays use the optional HealComm-1.0 library. SlamFrames works normally without it.", 1, 1, 1, true)
                 GameTooltip:AddLine(SF:GetHealPredictionStatus(), 0.70, 0.90, 0.70, true)
                 GameTooltip:Show()
             end)
